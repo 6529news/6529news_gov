@@ -138,14 +138,22 @@ export async function tallyVotes(votes) {
   };
 }
 
-// Create a new proposal
-export async function createProposal(action, waveId, reason) {
+// Create a new proposal with TDH allocation (minimum 1M)
+export async function createProposal(action, waveId, reason, allocatedTDH) {
   const address = getAddress();
   if (!address) throw new Error('Wallet not connected');
 
   const identity = await resolveIdentity(address);
-  if (identity.tdh < CONFIG.MIN_TDH_PROPOSE) {
-    throw new Error(`Insufficient TDH. You have ${formatTDH(identity.tdh)}, need ${formatTDH(CONFIG.MIN_TDH_PROPOSE)}.`);
+
+  // Check TDH budget
+  const { total: alreadyAllocated } = await getAllocatedTDH(identity.primaryAddress);
+  const available = identity.tdh - alreadyAllocated;
+
+  if (allocatedTDH < CONFIG.MIN_TDH_PROPOSE) {
+    throw new Error(`Minimum ${formatTDH(CONFIG.MIN_TDH_PROPOSE)} TDH to create a proposal.`);
+  }
+  if (allocatedTDH > available) {
+    throw new Error(`Insufficient budget. Available: ${formatTDH(available)} TDH (${formatTDH(alreadyAllocated)} already allocated).`);
   }
 
   // Verify wave (skip for generic requests)
@@ -168,6 +176,7 @@ export async function createProposal(action, waveId, reason) {
       handle: identity.handle,
       tdh: identity.tdh
     },
+    proposerAllocatedTDH: allocatedTDH,
     reason,
     createdAt: new Date(timestamp * 1000).toISOString(),
     expiresAt,
@@ -205,4 +214,33 @@ export async function hasVoted(proposalId) {
 export function invalidateCache() {
   proposalsCache = null;
   proposalsCacheTs = 0;
+}
+
+// Calculate how much TDH is already allocated by a user across all active proposals
+export async function getAllocatedTDH(primaryAddress) {
+  const proposals = await listProposals();
+  const active = proposals.filter(p => p.status === 'active' && new Date(p.expiresAt) > new Date());
+  const addr = primaryAddress.toLowerCase();
+  let total = 0;
+  const breakdown = [];
+
+  for (const p of active) {
+    // Check if user is the proposer
+    if (p.proposer.address.toLowerCase() === addr && p.proposerAllocatedTDH) {
+      total += p.proposerAllocatedTDH;
+      breakdown.push({ proposalId: p.id, type: 'proposer', tdh: p.proposerAllocatedTDH, waveName: p.waveName || p.reason?.substring(0, 40) });
+    }
+
+    // Check if user voted on this proposal
+    const votes = await getProposalVotes(p.id);
+    for (const v of votes) {
+      if ((v.voter || '').toLowerCase() === addr || (v.submittedBy || '').toLowerCase() === addr) {
+        const allocated = v.allocatedTDH || 0;
+        total += allocated;
+        breakdown.push({ proposalId: p.id, type: 'vote', tdh: allocated, waveName: p.waveName || p.reason?.substring(0, 40) });
+      }
+    }
+  }
+
+  return { total, breakdown };
 }

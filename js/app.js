@@ -4,7 +4,7 @@
 import { CONFIG, GOV_API, ENGINE_API } from './config.js';
 import { connectWallet, disconnectWallet, getAddress, isConnected } from './wallet.js';
 import { resolveIdentity, formatTDH, shortAddress, verifyWave } from './api6529.js';
-import { listProposals, getProposal, getProposalVotes, tallyVotes, createProposal, hasVoted } from './proposals.js';
+import { listProposals, getProposal, getProposalVotes, tallyVotes, createProposal, hasVoted, getAllocatedTDH } from './proposals.js';
 import { submitVote } from './voting.js';
 
 // State
@@ -214,19 +214,31 @@ async function renderProposalDetail(id) {
 
   const actionLabel = proposal.action === 'add' ? 'Add Wave' : 'Remove Wave';
 
+  // Calculate available TDH budget for voting
+  let availableTDH = userIdentity ? userIdentity.tdh : 0;
+  let allocatedInfo = '';
+  if (userIdentity) {
+    const { total: alreadyAllocated } = await getAllocatedTDH(userIdentity.primaryAddress);
+    availableTDH = Math.max(0, userIdentity.tdh - alreadyAllocated);
+    if (alreadyAllocated > 0) allocatedInfo = ` (${formatTDH(alreadyAllocated)} allocated elsewhere)`;
+  }
+
   let voteSection = '';
   if (userIdentity && proposal.status === 'active' && !isExpired && !voted) {
-    voteSection = `
+    if (availableTDH <= 0) {
+      voteSection = '<div class="voted-msg">All your TDH is allocated to other proposals/votes. Withdraw some to vote here.</div>';
+    } else {
+      voteSection = `
       <div class="vote-panel">
         <h3>Cast Your Vote</h3>
         <div class="tdh-allocator">
           <div class="tdh-allocator-header">
             <label>TDH to allocate</label>
-            <span class="tdh-allocator-max">Max: ${formatTDH(userIdentity.tdh)}</span>
+            <span class="tdh-allocator-max">Available: ${formatTDH(availableTDH)}${allocatedInfo}</span>
           </div>
           <div class="tdh-slider-row">
-            <input type="range" id="tdhSlider" min="1" max="${userIdentity.tdh}" value="${userIdentity.tdh}" class="tdh-slider">
-            <input type="number" id="tdhInput" min="1" max="${userIdentity.tdh}" value="${userIdentity.tdh}" class="tdh-input">
+            <input type="range" id="tdhSlider" min="1" max="${availableTDH}" value="${availableTDH}" class="tdh-slider">
+            <input type="number" id="tdhInput" min="1" max="${availableTDH}" value="${availableTDH}" class="tdh-input">
           </div>
           <div class="tdh-presets">
             <button class="btn btn-sm tdh-preset" data-pct="25">25%</button>
@@ -242,6 +254,7 @@ async function renderProposalDetail(id) {
         <div id="voteStatus" class="vote-status"></div>
       </div>
     `;
+    }
   } else if (voted) {
     voteSection = '<div class="voted-msg">You have already voted on this proposal.</div>';
   } else if (!userIdentity) {
@@ -321,7 +334,7 @@ async function renderProposalDetail(id) {
     document.querySelectorAll('.tdh-preset').forEach(btn => {
       btn.addEventListener('click', () => {
         const pct = parseInt(btn.dataset.pct);
-        const val = Math.floor(userIdentity.tdh * pct / 100);
+        const val = Math.max(1, Math.floor(availableTDH * pct / 100));
         slider.value = val;
         input.value = val;
       });
@@ -382,8 +395,17 @@ async function renderCreateProposal() {
     return;
   }
 
-  if (userIdentity.tdh < CONFIG.MIN_TDH_PROPOSE) {
-    app.innerHTML = `<div class="empty-state">You need ${formatTDH(CONFIG.MIN_TDH_PROPOSE)} TDH to create a proposal. You have ${formatTDH(userIdentity.tdh)}. <a href="#/">Back</a></div>`;
+  // Calculate available TDH budget
+  const { total: alreadyAllocated, breakdown } = await getAllocatedTDH(userIdentity.primaryAddress);
+  const available = userIdentity.tdh - alreadyAllocated;
+  const minAlloc = CONFIG.MIN_TDH_PROPOSE;
+
+  if (available < minAlloc) {
+    app.innerHTML = `<div class="empty-state">
+      Insufficient TDH budget. You need at least ${formatTDH(minAlloc)} available TDH.<br>
+      Total: ${formatTDH(userIdentity.tdh)} | Allocated: ${formatTDH(alreadyAllocated)} | Available: ${formatTDH(available)}<br>
+      <a href="#/">Back</a>
+    </div>`;
     return;
   }
 
@@ -391,7 +413,7 @@ async function renderCreateProposal() {
     <a href="#/" class="back-link">&larr; Back to Dashboard</a>
     <div class="create-form">
       <h2>Create Proposal</h2>
-      <p class="form-sub">Propose adding or removing a wave from the MEMES 24H news sources.</p>
+      <p class="form-sub">Propose adding or removing a wave. Minimum ${formatTDH(minAlloc)} TDH to create. Your TDH is locked until the proposal expires or you withdraw it.</p>
 
       <div class="form-group">
         <label>Action</label>
@@ -413,27 +435,55 @@ async function renderCreateProposal() {
         <textarea id="propReason" rows="3" placeholder="Why should this wave be added/removed?"></textarea>
       </div>
 
+      <div class="form-group">
+        <label>TDH to allocate</label>
+        <div class="tdh-allocator">
+          <div class="tdh-allocator-header">
+            <span>Min: ${formatTDH(minAlloc)}</span>
+            <span>Available: ${formatTDH(available)}${alreadyAllocated > 0 ? ` (${formatTDH(alreadyAllocated)} already allocated)` : ''}</span>
+          </div>
+          <div class="tdh-slider-row">
+            <input type="range" id="tdhSlider" min="${minAlloc}" max="${available}" value="${minAlloc}" class="tdh-slider">
+            <input type="number" id="tdhInput" min="${minAlloc}" max="${available}" value="${minAlloc}" class="tdh-input">
+          </div>
+          <div class="tdh-presets">
+            <button class="btn btn-sm tdh-preset" data-val="${minAlloc}">Min (${formatTDH(minAlloc)})</button>
+            <button class="btn btn-sm tdh-preset" data-pct="50">50%</button>
+            <button class="btn btn-sm tdh-preset" data-pct="100">Max</button>
+          </div>
+        </div>
+      </div>
+
       <div class="form-footer">
-        <span class="form-cost">Your TDH: ${formatTDH(userIdentity.tdh)}</span>
+        <span class="form-cost">Total TDH: ${formatTDH(userIdentity.tdh)} | Available: ${formatTDH(available)}</span>
         <button class="btn btn-primary" id="btnSubmitProposal">Sign & Submit Proposal</button>
       </div>
       <div id="proposalStatus" class="vote-status" style="margin-top:16px"></div>
     </div>
   `;
 
+  // TDH slider/input sync
+  const slider = document.getElementById('tdhSlider');
+  const input = document.getElementById('tdhInput');
+  slider.addEventListener('input', () => { input.value = slider.value; });
+  input.addEventListener('input', () => { slider.value = Math.min(Math.max(input.value, minAlloc), available); });
+  document.querySelectorAll('.tdh-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.val) { slider.value = btn.dataset.val; input.value = btn.dataset.val; }
+      else if (btn.dataset.pct) { const v = Math.floor(available * parseInt(btn.dataset.pct) / 100); slider.value = Math.max(v, minAlloc); input.value = slider.value; }
+    });
+  });
+
   // Verify wave on blur
   document.getElementById('propWaveId').addEventListener('blur', async (e) => {
     const waveId = e.target.value.trim();
     const verifyEl = document.getElementById('waveVerify');
     if (!waveId) { verifyEl.innerHTML = ''; return; }
-
     verifyEl.innerHTML = '<span class="verifying">Verifying...</span>';
     const wave = await verifyWave(waveId);
-    if (wave.exists) {
-      verifyEl.innerHTML = `<span class="verified">Found: ${wave.name}</span>`;
-    } else {
-      verifyEl.innerHTML = '<span class="not-found">Wave not found on 6529.io</span>';
-    }
+    verifyEl.innerHTML = wave.exists
+      ? `<span class="verified">Found: ${wave.name}</span>`
+      : '<span class="not-found">Wave not found on 6529.io</span>';
   });
 
   // Submit handler
@@ -441,10 +491,11 @@ async function renderCreateProposal() {
     const action = document.getElementById('propAction').value;
     const waveId = document.getElementById('propWaveId').value.trim();
     const reason = document.getElementById('propReason').value.trim();
+    const allocatedTDH = parseInt(document.getElementById('tdhInput').value);
 
     if (!waveId) { showToast('Enter a wave ID', 'error'); return; }
     if (!reason) { showToast('Enter a reason', 'error'); return; }
-
+    if (allocatedTDH < minAlloc) { showToast(`Minimum ${formatTDH(minAlloc)} TDH`, 'error'); return; }
 
     const statusEl = document.getElementById('proposalStatus');
     const btn = document.getElementById('btnSubmitProposal');
@@ -453,23 +504,16 @@ async function renderCreateProposal() {
     if (statusEl) statusEl.innerHTML = '<span class="status-pending">Signing proposal with wallet...</span>';
 
     try {
-      const result = await createProposal(action, waveId, reason);
-
-      if (result.issue?.fallback) {
-        if (statusEl) statusEl.innerHTML = '<span class="status-info">Redirected to GitHub to complete submission.</span>';
-        btn.disabled = false;
-        btn.textContent = 'Sign & Submit Proposal';
-      } else {
-        if (statusEl) statusEl.innerHTML = `
-          <span class="status-success">
-            Proposal submitted successfully!
-            <a href="${result.issue?.html_url}" target="_blank">View on GitHub</a>
-            <br>Redirecting to dashboard...
-          </span>
-        `;
-        showToast('Proposal submitted!', 'success');
-        setTimeout(() => { window.location.hash = '#/'; }, 2000);
-      }
+      const result = await createProposal(action, waveId, reason, allocatedTDH);
+      if (statusEl) statusEl.innerHTML = `
+        <span class="status-success">
+          Proposal submitted with ${formatTDH(allocatedTDH)} TDH!
+          <a href="${result.issue?.html_url}" target="_blank">View on GitHub</a>
+          <br>Redirecting to dashboard...
+        </span>
+      `;
+      showToast('Proposal submitted!', 'success');
+      setTimeout(() => { window.location.hash = '#/'; }, 2000);
     } catch (err) {
       if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
       btn.disabled = false;
@@ -776,8 +820,15 @@ async function renderCreateRequest() {
     return;
   }
 
-  if (userIdentity.tdh < CONFIG.MIN_TDH_PROPOSE) {
-    app.innerHTML = `<div class="empty-state">You need ${formatTDH(CONFIG.MIN_TDH_PROPOSE)} TDH to submit a request. You have ${formatTDH(userIdentity.tdh)}. <a href="#/requests">Back</a></div>`;
+  const { total: alreadyAllocated } = await getAllocatedTDH(userIdentity.primaryAddress);
+  const available = userIdentity.tdh - alreadyAllocated;
+  const minAlloc = CONFIG.MIN_TDH_PROPOSE;
+
+  if (available < minAlloc) {
+    app.innerHTML = `<div class="empty-state">
+      Insufficient TDH budget. Available: ${formatTDH(available)} (need ${formatTDH(minAlloc)}).<br>
+      <a href="#/requests">Back</a>
+    </div>`;
     return;
   }
 
@@ -785,24 +836,39 @@ async function renderCreateRequest() {
     <a href="#/requests" class="back-link">&larr; Back to Requests</a>
     <div class="create-form">
       <h2>Submit a Request</h2>
-      <p class="form-sub">Any idea, feature, change — write it here. The community votes with TDH. Requests reaching ${formatTDH(CONFIG.TDH_THRESHOLD_REQUEST)} TDH get reviewed and implemented.</p>
+      <p class="form-sub">Any idea, feature, change — write it here. Community votes with TDH. Requests reaching ${formatTDH(CONFIG.TDH_THRESHOLD_REQUEST)} TDH get reviewed.</p>
 
       <div class="form-group">
         <label>Your Request</label>
-        <textarea id="reqText" rows="4" placeholder="e.g. 'Let's change the background color!' or 'Add dark mode' or 'Show more market data'"></textarea>
+        <textarea id="reqText" rows="4" placeholder="e.g. 'Let's change the background color!' or 'Add dark mode'"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>TDH to allocate (min ${formatTDH(minAlloc)})</label>
+        <div class="tdh-slider-row">
+          <input type="range" id="tdhSlider" min="${minAlloc}" max="${available}" value="${minAlloc}" class="tdh-slider">
+          <input type="number" id="tdhInput" min="${minAlloc}" max="${available}" value="${minAlloc}" class="tdh-input">
+        </div>
+        <div class="form-hint">Available: ${formatTDH(available)} TDH</div>
       </div>
 
       <div class="form-footer">
-        <span class="form-cost">Your TDH: ${formatTDH(userIdentity.tdh)} &middot; Threshold: ${formatTDH(CONFIG.TDH_THRESHOLD_REQUEST)}</span>
         <button class="btn btn-primary" id="btnSubmitRequest">Sign & Submit Request</button>
       </div>
       <div id="requestStatus" class="vote-status" style="margin-top:16px"></div>
     </div>
   `;
 
+  const slider = document.getElementById('tdhSlider');
+  const input = document.getElementById('tdhInput');
+  slider.addEventListener('input', () => { input.value = slider.value; });
+  input.addEventListener('input', () => { slider.value = Math.min(Math.max(input.value, minAlloc), available); });
+
   document.getElementById('btnSubmitRequest').addEventListener('click', async () => {
     const text = document.getElementById('reqText').value.trim();
     if (!text) { showToast('Write your request', 'error'); return; }
+    const allocatedTDH = parseInt(document.getElementById('tdhInput').value);
+    if (allocatedTDH < minAlloc) { showToast(`Minimum ${formatTDH(minAlloc)} TDH`, 'error'); return; }
 
     const btn = document.getElementById('btnSubmitRequest');
     const statusEl = document.getElementById('requestStatus');
@@ -811,8 +877,7 @@ async function renderCreateRequest() {
     if (statusEl) statusEl.innerHTML = '<span class="status-pending">Signing request with wallet...</span>';
 
     try {
-      // Submit as a proposal with action='request', using the text as both waveName and reason
-      const result = await createProposal('request', 'generic-request', text);
+      const result = await createProposal('request', 'generic-request', text, allocatedTDH);
 
       if (result.issue?.fallback) {
         if (statusEl) statusEl.innerHTML = '<span class="status-info">Redirected to GitHub to complete submission.</span>';
