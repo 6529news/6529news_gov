@@ -246,6 +246,9 @@ a:hover { text-decoration: underline; color: #e8c65a; }
 .action-add { background: rgba(0,102,51,0.3); color: #00cc66; }
 .action-remove { background: rgba(136,0,0,0.3); color: #ff4444; }
 .action-request { background: rgba(100,80,0,0.3); color: #c8a84e; }
+.action-general { background: rgba(100,140,255,0.2); color: #6699ff; }
+.action-graphics { background: rgba(180,0,200,0.2); color: #cc66ff; }
+.action-governance { background: rgba(0,180,180,0.2); color: #00cccc; }
 
 .proposal-status {
   font-family: 'Teko', sans-serif;
@@ -695,26 +698,28 @@ a:hover { text-decoration: underline; color: #e8c65a; }
 
 .tdh-slider-row {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
   margin-bottom: 10px;
+  min-height: 40px;
 }
 
 .tdh-slider {
   flex: 1;
+  min-width: 200px;
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
+  height: 10px;
   background: rgba(255,255,255,0.08);
-  border-radius: 3px;
+  border-radius: 5px;
   outline: none;
 }
 
 .tdh-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, #b22222, #8b1a1a);
   cursor: pointer;
@@ -722,8 +727,8 @@ a:hover { text-decoration: underline; color: #e8c65a; }
 }
 
 .tdh-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, #b22222, #8b1a1a);
   cursor: pointer;
@@ -731,7 +736,7 @@ a:hover { text-decoration: underline; color: #e8c65a; }
 }
 
 .tdh-input {
-  width: 120px;
+  width: 140px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 4px;

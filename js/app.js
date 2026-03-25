@@ -172,15 +172,19 @@ async function renderDashboard() {
   app.innerHTML = html;
 }
 
+const ACTION_LABELS = { add: 'Add Wave', remove: 'Remove Wave', general: 'General', graphics: 'Graphics', governance: 'Governance', request: 'Request' };
+
 function renderProposalCard(p) {
   const isExpired = new Date(p.expiresAt) < new Date();
   const statusClass = p.status === 'active' ? (isExpired ? 'status-expired' : 'status-active') : (p.status === 'passed' ? 'status-passed' : 'status-failed');
   const statusLabel = p.status === 'active' ? (isExpired ? 'EXPIRED' : 'ACTIVE') : p.status.toUpperCase();
   const daysLeft = Math.max(0, Math.ceil((new Date(p.expiresAt) - new Date()) / 86400000));
-  const actionLabel = p.action === 'add' ? 'Add' : 'Remove';
+  const actionLabel = ACTION_LABELS[p.action] || p.action;
+  const tdhInfo = p.proposerAllocatedTDH ? ` · ${formatTDH(p.proposerAllocatedTDH)} TDH` : '';
+  const link = p.action === 'request' ? `#/request/${p.id}` : `#/proposal/${p.id}`;
 
   return `
-    <a href="#/proposal/${p.id}" class="proposal-card">
+    <a href="${link}" class="proposal-card">
       <div class="proposal-header">
         <span class="proposal-action action-${p.action}">${actionLabel}</span>
         <span class="proposal-status ${statusClass}">${statusLabel}</span>
@@ -188,7 +192,7 @@ function renderProposalCard(p) {
       <div class="proposal-wave">${p.waveName}</div>
       <div class="proposal-reason">${p.reason || ''}</div>
       <div class="proposal-meta">
-        <span>by ${p.proposer.handle || shortAddress(p.proposer.address)}</span>
+        <span>by ${p.proposer.handle || shortAddress(p.proposer.address)}${tdhInfo}</span>
         <span>${p.status === 'active' && !isExpired ? daysLeft + 'd left' : ''}</span>
       </div>
     </a>
@@ -416,14 +420,17 @@ async function renderCreateProposal() {
       <p class="form-sub">Propose adding or removing a wave. Minimum ${formatTDH(minAlloc)} TDH to create. Your TDH is locked until the proposal expires or you withdraw it.</p>
 
       <div class="form-group">
-        <label>Action</label>
+        <label>Category</label>
         <select id="propAction">
           <option value="add">Add Wave</option>
           <option value="remove">Remove Wave</option>
+          <option value="general">General</option>
+          <option value="graphics">Graphics</option>
+          <option value="governance">Governance Protocol</option>
         </select>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="waveIdGroup">
         <label>Wave ID (UUID from 6529.io URL)</label>
         <input type="text" id="propWaveId" placeholder="e.g. b38288e6-ca9d-45ce-8323-3dc5e094f04e">
         <div class="form-hint">Copy the wave UUID from the 6529.io URL</div>
@@ -431,8 +438,8 @@ async function renderCreateProposal() {
       </div>
 
       <div class="form-group">
-        <label>Reason</label>
-        <textarea id="propReason" rows="3" placeholder="Why should this wave be added/removed?"></textarea>
+        <label>Description</label>
+        <textarea id="propReason" rows="3" placeholder="Describe your proposal..."></textarea>
       </div>
 
       <div class="form-group">
@@ -474,6 +481,16 @@ async function renderCreateProposal() {
     });
   });
 
+  // Show/hide wave ID field based on action
+  const waveIdGroup = document.getElementById('waveIdGroup');
+  const actionSelect = document.getElementById('propAction');
+  function updateWaveField() {
+    const needsWave = ['add', 'remove'].includes(actionSelect.value);
+    waveIdGroup.style.display = needsWave ? '' : 'none';
+  }
+  actionSelect.addEventListener('change', updateWaveField);
+  updateWaveField();
+
   // Verify wave on blur
   document.getElementById('propWaveId').addEventListener('blur', async (e) => {
     const waveId = e.target.value.trim();
@@ -489,12 +506,13 @@ async function renderCreateProposal() {
   // Submit handler
   document.getElementById('btnSubmitProposal').addEventListener('click', async () => {
     const action = document.getElementById('propAction').value;
-    const waveId = document.getElementById('propWaveId').value.trim();
+    const needsWave = ['add', 'remove'].includes(action);
+    const waveId = needsWave ? document.getElementById('propWaveId').value.trim() : 'n/a';
     const reason = document.getElementById('propReason').value.trim();
     const allocatedTDH = parseInt(document.getElementById('tdhInput').value);
 
-    if (!waveId) { showToast('Enter a wave ID', 'error'); return; }
-    if (!reason) { showToast('Enter a reason', 'error'); return; }
+    if (needsWave && !waveId) { showToast('Enter a wave ID', 'error'); return; }
+    if (!reason) { showToast('Enter a description', 'error'); return; }
     if (allocatedTDH < minAlloc) { showToast(`Minimum ${formatTDH(minAlloc)} TDH`, 'error'); return; }
 
     const statusEl = document.getElementById('proposalStatus');

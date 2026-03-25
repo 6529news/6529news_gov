@@ -156,9 +156,10 @@ export async function createProposal(action, waveId, reason, allocatedTDH) {
     throw new Error(`Insufficient budget. Available: ${formatTDH(available)} TDH (${formatTDH(alreadyAllocated)} already allocated).`);
   }
 
-  // Verify wave (skip for generic requests)
+  // Verify wave only for add/remove actions
+  const needsWave = ['add', 'remove'].includes(action);
   let wave = { exists: true, name: reason.substring(0, 60) };
-  if (action !== 'request') {
+  if (needsWave) {
     wave = await verifyWave(waveId);
     if (!wave.exists) throw new Error('Wave not found on 6529.');
   }
@@ -184,9 +185,11 @@ export async function createProposal(action, waveId, reason, allocatedTDH) {
     signature
   };
 
-  const title = action === 'request'
-    ? `[REQUEST] ${reason.substring(0, 60)}`
-    : `[PROPOSAL] ${action} wave: ${wave.name}`;
+  const actionLabels = { add: 'Add Wave', remove: 'Remove Wave', general: 'General', graphics: 'Graphics', governance: 'Governance', request: 'Request' };
+  const label = actionLabels[action] || action;
+  const title = needsWave
+    ? `[${label.toUpperCase()}] ${wave.name}`
+    : `[${label.toUpperCase()}] ${reason.substring(0, 60)}`;
   const body = '```json\n' + JSON.stringify(proposal, null, 2) + '\n```';
 
   const result = await createGitHubIssue(title, body, [action === 'request' ? 'request' : 'proposal']);
