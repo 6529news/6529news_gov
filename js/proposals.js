@@ -201,6 +201,19 @@ export async function hasVoted(proposalId) {
   );
 }
 
+// Delete (close) a proposal — only the proposer can do this
+export async function deleteProposal(issueNumber, address) {
+  const res = await fetch(`${CONFIG.WORKER_URL}/api/close-issue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ issueNumber, address })
+  });
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error || 'Failed to delete');
+  invalidateCache();
+  return result;
+}
+
 export function invalidateCache() {
   proposalsCache = null;
   proposalsCacheTs = 0;

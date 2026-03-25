@@ -4,7 +4,7 @@
 import { CONFIG, GOV_API, ENGINE_API } from './config.js';
 import { connectWallet, disconnectWallet, getAddress, isConnected } from './wallet.js';
 import { resolveIdentity, formatTDH, shortAddress, verifyWave } from './api6529.js';
-import { listProposals, getProposal, getProposalVotes, tallyVotes, createProposal, hasVoted, getAllocatedTDH } from './proposals.js';
+import { listProposals, getProposal, getProposalVotes, tallyVotes, createProposal, hasVoted, getAllocatedTDH, deleteProposal, invalidateCache } from './proposals.js';
 import { submitVote } from './voting.js';
 
 // State
@@ -284,12 +284,20 @@ async function renderProposalDetail(id) {
     voteSection = '<div class="voted-msg">Connect your wallet to vote.</div>';
   }
 
+  // Check if current user is the proposer
+  const isProposer = userIdentity && proposal.proposer?.address &&
+    userIdentity.primaryAddress.toLowerCase() === proposal.proposer.address.toLowerCase();
+  const deleteBtn = isProposer && proposal.status === 'active' && proposal.issueNumber
+    ? `<button class="btn btn-no btn-sm" id="btnDelete" style="margin-left:auto">Delete Proposal</button>`
+    : '';
+
   app.innerHTML = `
     <a href="#/" class="back-link">&larr; Back to Dashboard</a>
     <div class="proposal-detail">
       <div class="proposal-detail-header">
         <span class="proposal-action action-${proposal.action}">${actionLabel}</span>
         <h2>${proposal.waveName}</h2>
+        ${deleteBtn}
       </div>
 
       <div class="proposal-info-grid">
@@ -369,6 +377,25 @@ async function renderProposalDetail(id) {
   const btnNo = document.getElementById('btnNo');
   if (btnYes) btnYes.addEventListener('click', () => handleVote(id, 'yes'));
   if (btnNo) btnNo.addEventListener('click', () => handleVote(id, 'no'));
+
+  // Delete handler
+  const btnDel = document.getElementById('btnDelete');
+  if (btnDel) btnDel.addEventListener('click', async () => {
+    if (!confirm('Delete this proposal? This cannot be undone.')) return;
+    btnDel.disabled = true;
+    btnDel.textContent = 'Deleting...';
+    try {
+      await deleteProposal(proposal.issueNumber, userIdentity.primaryAddress);
+      showToast('Proposal deleted', 'success');
+      invalidateCache();
+      window.location.hash = '#/';
+      route();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btnDel.disabled = false;
+      btnDel.textContent = 'Delete Proposal';
+    }
+  });
 }
 
 async function handleVote(proposalId, vote) {
@@ -542,15 +569,11 @@ async function renderCreateProposal() {
 
     try {
       const result = await createProposal(action, waveId, reason, allocatedTDH);
-      if (statusEl) statusEl.innerHTML = `
-        <span class="status-success">
-          Proposal submitted with ${formatTDH(allocatedTDH)} TDH!
-          <a href="${result.issue?.html_url}" target="_blank">View on GitHub</a>
-          <br>Redirecting to dashboard...
-        </span>
-      `;
       showToast('Proposal submitted!', 'success');
-      setTimeout(() => { window.location.hash = '#/'; }, 2000);
+      // Force cache clear and redirect immediately to dashboard
+      invalidateCache();
+      window.location.hash = '#/';
+      route();
     } catch (err) {
       if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
       btn.disabled = false;
@@ -915,21 +938,10 @@ async function renderCreateRequest() {
 
     try {
       const result = await createProposal('request', 'generic-request', text, allocatedTDH);
-
-      if (result.issue?.fallback) {
-        if (statusEl) statusEl.innerHTML = '<span class="status-info">Redirected to GitHub to complete submission.</span>';
-        btn.disabled = false;
-        btn.textContent = 'Sign & Submit Request';
-      } else {
-        if (statusEl) statusEl.innerHTML = `
-          <span class="status-success">
-            Request submitted! Community can now vote on it.
-            <a href="${result.issue?.html_url}" target="_blank">View on GitHub</a>
-          </span>
-        `;
-        showToast('Request submitted!', 'success');
-        setTimeout(() => { window.location.hash = '#/requests'; }, 2000);
-      }
+      showToast('Request submitted!', 'success');
+      invalidateCache();
+      window.location.hash = '#/requests';
+      route();
     } catch (err) {
       if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
       btn.disabled = false;
