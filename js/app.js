@@ -235,7 +235,7 @@ async function renderProposalDetail(id) {
   const daysLeft = Math.max(0, Math.ceil((new Date(proposal.expiresAt) - new Date()) / 86400000));
   const voted = userIdentity ? await hasVoted(id) : false;
 
-  const actionLabel = proposal.action === 'add' ? 'Add Wave' : 'Remove Wave';
+  const actionLabel = ACTION_LABELS[proposal.action] || proposal.action;
 
   // Calculate available TDH budget for voting
   let availableTDH = userIdentity ? userIdentity.tdh : 0;

@@ -44,20 +44,18 @@ export async function listProposals() {
 
     for (const issue of issues) {
       const labels = issue.labels.map(l => l.name);
-      // Skip vote issues and test issues
-      if (labels.includes('vote') || labels.includes('test')) continue;
+      // Skip vote issues, test issues, and withdrawn/deleted proposals
+      if (labels.includes('vote') || labels.includes('test') || labels.includes('withdrawn')) continue;
       if (issue.title.toLowerCase().includes('test') || issue.title.toLowerCase().includes('delete')) continue;
+      // Skip closed issues (deleted/rejected) entirely from active view
+      if (issue.state === 'closed') continue;
 
       const data = parseIssueJSON(issue.body);
       if (!data || !data.proposer) continue;
 
-      // Determine status from issue state
+      // Determine status
       const isExpired = data.expiresAt && new Date(data.expiresAt) < new Date();
-      if (issue.state === 'closed') {
-        data.status = labels.includes('passed') ? 'passed' : 'rejected';
-      } else {
-        data.status = isExpired ? 'expired' : 'active';
-      }
+      data.status = isExpired ? 'expired' : 'active';
 
       data.issueNumber = issue.number;
       data.issueUrl = issue.html_url;
