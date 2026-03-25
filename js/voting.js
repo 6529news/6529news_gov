@@ -1,29 +1,9 @@
 // MEMES 24H Governance - Vote Submission
-// Votes submitted via GitHub Issues on gov repo (embedded token)
+// Votes submitted via Cloudflare Worker proxy (token server-side)
 
-import { CONFIG, GOV_API } from './config.js';
+import { CONFIG } from './config.js';
 import { getAddress, signVote } from './wallet.js';
 import { resolveIdentity, formatTDH } from './api6529.js';
-
-// Create a GitHub Issue on the gov repo
-async function createGitHubIssue(title, body, labels) {
-  const res = await fetch(`${GOV_API}/issues`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${CONFIG.ISSUES_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github+json'
-    },
-    body: JSON.stringify({ title, body, labels })
-  });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(`GitHub API error: ${err.message || res.status}`);
-  }
-
-  return res.json();
-}
 
 // Submit a vote on a proposal with TDH allocation
 export async function submitVote(proposalId, vote, allocatedTDH) {
@@ -56,14 +36,18 @@ export async function submitVote(proposalId, vote, allocatedTDH) {
     voterTDH: identity.tdh,
     allocatedTDH,
     timestamp,
-    signature,
     submittedBy: address
   };
 
-  const title = `[VOTE] ${proposalId} ${vote}`;
-  const body = '```json\n' + JSON.stringify(voteData, null, 2) + '\n```';
+  // Submit via Worker proxy
+  const res = await fetch(`${CONFIG.WORKER_URL}/api/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voteData, signature })
+  });
 
-  const result = await createGitHubIssue(title, body, ['vote']);
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error || `Worker error: ${res.status}`);
 
-  return { voteData, issue: result };
+  return { voteData, issue: result.issue };
 }

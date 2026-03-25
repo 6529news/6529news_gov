@@ -8,29 +8,17 @@ import { getAddress, signProposal } from './wallet.js';
 let proposalsCache = null;
 let proposalsCacheTs = 0;
 
-// Auth headers for the issues-only token
-function issueHeaders() {
-  return {
-    'Authorization': `Bearer ${CONFIG.ISSUES_TOKEN}`,
-    'Content-Type': 'application/json',
-    'Accept': 'application/vnd.github+json'
-  };
-}
-
-// Create a GitHub Issue on the gov repo
-async function createGitHubIssue(title, body, labels) {
-  const res = await fetch(`${GOV_API}/issues`, {
+// Submit via Cloudflare Worker proxy (token is server-side)
+async function workerPost(endpoint, data) {
+  const res = await fetch(`${CONFIG.WORKER_URL}${endpoint}`, {
     method: 'POST',
-    headers: issueHeaders(),
-    body: JSON.stringify({ title, body, labels })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
   });
 
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(`GitHub API error: ${err.message || res.status}`);
-  }
-
-  return res.json();
+  const result = await res.json();
+  if (!res.ok) throw new Error(result.error || `Worker error: ${res.status}`);
+  return result;
 }
 
 // Fetch all proposals from the gov repo (public — no auth needed)
@@ -185,17 +173,10 @@ export async function createProposal(action, waveId, reason, allocatedTDH) {
     signature
   };
 
-  const actionLabels = { add: 'Add Wave', remove: 'Remove Wave', general: 'General', graphics: 'Graphics', governance: 'Governance', request: 'Request' };
-  const label = actionLabels[action] || action;
-  const title = needsWave
-    ? `[${label.toUpperCase()}] ${wave.name}`
-    : `[${label.toUpperCase()}] ${reason.substring(0, 60)}`;
-  const body = '```json\n' + JSON.stringify(proposal, null, 2) + '\n```';
-
-  const result = await createGitHubIssue(title, body, [action === 'request' ? 'request' : 'proposal']);
+  const result = await workerPost('/api/proposal', { proposal, signature });
 
   proposalsCache = null;
-  return { proposal, issue: result };
+  return { proposal, issue: result.issue };
 }
 
 // Check if current user has voted
