@@ -1,7 +1,7 @@
 // MEMES 24H Governance - Proposals Management
 // Proposals/votes on public gov repo, issues via embedded token
 
-import { CONFIG, GOV_API, GOV_RAW } from './config.js';
+import { CONFIG, GOV_API } from './config.js';
 import { resolveIdentity, getTDH, verifyWave, formatTDH } from './api6529.js';
 import { getAddress, signProposal } from './wallet.js';
 
@@ -21,36 +21,52 @@ async function workerPost(endpoint, data) {
   return result;
 }
 
-// Fetch all proposals from the gov repo (public — no auth needed)
+// Parse a proposal/vote from a GitHub Issue body (JSON in code block)
+function parseIssueJSON(body) {
+  const match = body.match(/```json\n([\s\S]*?)\n```/);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch { return null; }
+}
+
+// Fetch all proposals from GitHub Issues (public repo, no auth needed)
 export async function listProposals() {
   if (proposalsCache && Date.now() - proposalsCacheTs < CONFIG.CACHE_PROPOSALS_TTL) {
     return proposalsCache;
   }
 
   try {
-    const res = await fetch(`${GOV_API}/contents/${CONFIG.PROPOSALS_PATH}`);
+    // Fetch all issues labeled as proposal, request, or any category
+    const res = await fetch(`${GOV_API}/issues?state=all&per_page=100&sort=created&direction=desc`);
     if (!res.ok) return [];
 
-    const files = await res.json();
-    const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+    const issues = await res.json();
+    const proposals = [];
 
-    const proposals = await Promise.all(
-      jsonFiles.map(async (f) => {
-        // Public repo — download_url works
-        if (f.download_url) {
-          const r = await fetch(f.download_url);
-          return r.json();
-        }
-        const r = await fetch(f.url);
-        const data = await r.json();
-        return JSON.parse(atob(data.content));
-      })
-    );
+    for (const issue of issues) {
+      const labels = issue.labels.map(l => l.name);
+      // Skip vote issues
+      if (labels.includes('vote')) continue;
+
+      const data = parseIssueJSON(issue.body);
+      if (!data || !data.proposer) continue;
+
+      // Determine status from issue state
+      const isExpired = data.expiresAt && new Date(data.expiresAt) < new Date();
+      if (issue.state === 'closed') {
+        data.status = labels.includes('passed') ? 'passed' : 'rejected';
+      } else {
+        data.status = isExpired ? 'expired' : 'active';
+      }
+
+      data.issueNumber = issue.number;
+      data.issueUrl = issue.html_url;
+      proposals.push(data);
+    }
 
     proposals.sort((a, b) => {
       if (a.status === 'active' && b.status !== 'active') return -1;
       if (a.status !== 'active' && b.status === 'active') return 1;
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
 
     proposalsCache = proposals;
@@ -62,37 +78,27 @@ export async function listProposals() {
   }
 }
 
-// Fetch a single proposal
+// Fetch a single proposal by ID
 export async function getProposal(id) {
-  try {
-    const res = await fetch(`${GOV_RAW}/${CONFIG.PROPOSALS_PATH}/${id}.json?t=${Date.now()}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
+  const proposals = await listProposals();
+  return proposals.find(p => p.id === id) || null;
 }
 
-// Get votes for a proposal
+// Get votes for a proposal from GitHub Issues
 export async function getProposalVotes(proposalId) {
   try {
-    const res = await fetch(`${GOV_API}/contents/${CONFIG.VOTES_PATH}/${proposalId}`);
+    const res = await fetch(`${GOV_API}/issues?labels=vote&state=all&per_page=100`);
     if (!res.ok) return [];
 
-    const files = await res.json();
-    const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+    const issues = await res.json();
+    const votes = [];
 
-    const votes = await Promise.all(
-      jsonFiles.map(async (f) => {
-        if (f.download_url) {
-          const r = await fetch(f.download_url);
-          return r.json();
-        }
-        const r = await fetch(f.url);
-        const data = await r.json();
-        return JSON.parse(atob(data.content));
-      })
-    );
+    for (const issue of issues) {
+      const data = parseIssueJSON(issue.body);
+      if (data && data.proposalId === proposalId) {
+        votes.push(data);
+      }
+    }
 
     return votes;
   } catch {
@@ -187,12 +193,11 @@ export async function hasVoted(proposalId) {
   const identity = await resolveIdentity(address);
   const primaryAddr = identity.primaryAddress.toLowerCase();
 
-  try {
-    const res = await fetch(`${GOV_RAW}/${CONFIG.VOTES_PATH}/${proposalId}/${primaryAddr}.json?t=${Date.now()}`);
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const votes = await getProposalVotes(proposalId);
+  return votes.some(v =>
+    (v.voter || '').toLowerCase() === primaryAddr ||
+    (v.submittedBy || '').toLowerCase() === primaryAddr
+  );
 }
 
 export function invalidateCache() {
