@@ -1,11 +1,15 @@
 // MEMES 24H Governance - Configuration
-// All constants in one place for easy modification and transfer
 
 export const CONFIG = {
-  // GitHub repo - change these when transferring ownership
-  REPO_OWNER: '6529news',
-  REPO_NAME: '6529news_engine',
-  REPO_BRANCH: 'main',
+  // Governance repo (public) — proposals, votes, issues
+  GOV_OWNER: '6529news',
+  GOV_REPO: '6529news_gov',
+  GOV_BRANCH: 'main',
+
+  // Engine repo (private) — waves config, news data
+  ENGINE_OWNER: '6529news',
+  ENGINE_REPO: '6529news_engine',
+  ENGINE_BRANCH: 'main',
 
   // Governance thresholds
   MIN_TDH_PROPOSE: 1_000_000,    // 1M TDH to create a proposal
@@ -16,10 +20,10 @@ export const CONFIG = {
   // 6529 API
   API_6529: 'https://api.6529.io/api',
 
-  // Data paths in repo
-  WAVES_CONFIG_PATH: 'data/waves-config.json',
-  PROPOSALS_PATH: 'data/proposals',
-  VOTES_PATH: 'data/votes',
+  // Data paths
+  WAVES_CONFIG_PATH: 'data/waves-config.json', // in engine repo
+  PROPOSALS_PATH: 'data/proposals',             // in gov repo
+  VOTES_PATH: 'data/votes',                     // in gov repo
 
   // EIP-712 domain for vote signing
   EIP712_DOMAIN: {
@@ -44,14 +48,9 @@ export const CONFIG = {
     ]
   },
 
-  // GitHub fine-grained PAT (issues:write only)
-  // This token can ONLY create issues. Safe to expose in client code.
-  // To rotate: create new fine-grained PAT with Repository > Issues > Write
-  // Token loaded from localStorage (user enters it once)
-  // Or set via URL param: ?token=xxx
-  get GITHUB_TOKEN() {
-    return localStorage.getItem('memes24h_gh_token') || '';
-  },
+  // Fine-grained PAT: can ONLY create issues on 6529news_gov (public repo)
+  // Safe to embed — no access to code, secrets, or private repos
+  ISSUES_TOKEN: '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',
 
   // Cache TTLs (ms)
   CACHE_PROPOSALS_TTL: 5 * 60 * 1000,  // 5 min
@@ -59,5 +58,6 @@ export const CONFIG = {
 };
 
 // Derived URLs
-export const GITHUB_RAW = `https://raw.githubusercontent.com/${CONFIG.REPO_OWNER}/${CONFIG.REPO_NAME}/${CONFIG.REPO_BRANCH}`;
-export const GITHUB_API = `https://api.github.com/repos/${CONFIG.REPO_OWNER}/${CONFIG.REPO_NAME}`;
+export const GOV_API = `https://api.github.com/repos/${CONFIG.GOV_OWNER}/${CONFIG.GOV_REPO}`;
+export const GOV_RAW = `https://raw.githubusercontent.com/${CONFIG.GOV_OWNER}/${CONFIG.GOV_REPO}/${CONFIG.GOV_BRANCH}`;
+export const ENGINE_API = `https://api.github.com/repos/${CONFIG.ENGINE_OWNER}/${CONFIG.ENGINE_REPO}`;

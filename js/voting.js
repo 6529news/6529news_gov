@@ -1,25 +1,16 @@
 // MEMES 24H Governance - Vote Submission
-// Votes submitted via GitHub Issues API (stays on-site)
-// Users can choose how much TDH to allocate
+// Votes submitted via GitHub Issues on gov repo (embedded token)
 
-import { CONFIG, GITHUB_API } from './config.js';
+import { CONFIG, GOV_API } from './config.js';
 import { getAddress, signVote } from './wallet.js';
 import { resolveIdentity, formatTDH } from './api6529.js';
 
-// Create a GitHub Issue via API
+// Create a GitHub Issue on the gov repo
 async function createGitHubIssue(title, body, labels) {
-  const token = CONFIG.GITHUB_TOKEN;
-
-  if (!token) {
-    const issueUrl = `https://github.com/${CONFIG.REPO_OWNER}/${CONFIG.REPO_NAME}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}&labels=${labels.join(',')}`;
-    window.open(issueUrl, '_blank');
-    return { fallback: true };
-  }
-
-  const res = await fetch(`${GITHUB_API}/issues`, {
+  const res = await fetch(`${GOV_API}/issues`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${CONFIG.ISSUES_TOKEN}`,
       'Content-Type': 'application/json',
       'Accept': 'application/vnd.github+json'
     },
@@ -43,13 +34,11 @@ export async function submitVote(proposalId, vote, allocatedTDH) {
   const address = getAddress();
   if (!address) throw new Error('Wallet not connected');
 
-  // Get identity and TDH
   const identity = await resolveIdentity(address);
   if (identity.tdh === 0) {
     throw new Error('You need TDH to vote. Collect The Memes NFTs to earn TDH.');
   }
 
-  // Validate allocated TDH
   if (!allocatedTDH || allocatedTDH <= 0) {
     throw new Error('You must allocate some TDH to your vote.');
   }
@@ -57,7 +46,6 @@ export async function submitVote(proposalId, vote, allocatedTDH) {
     throw new Error(`Cannot allocate more TDH than you have (${formatTDH(identity.tdh)}).`);
   }
 
-  // Sign the vote
   const { signature, timestamp } = await signVote(proposalId, vote);
 
   const voteData = {
@@ -72,7 +60,6 @@ export async function submitVote(proposalId, vote, allocatedTDH) {
     submittedBy: address
   };
 
-  // Submit via GitHub API
   const title = `[VOTE] ${proposalId} ${vote}`;
   const body = '```json\n' + JSON.stringify(voteData, null, 2) + '\n```';
 

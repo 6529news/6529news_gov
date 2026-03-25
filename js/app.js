@@ -1,7 +1,7 @@
 // MEMES 24H Governance - Main Application Controller
 // Hash-based routing SPA
 
-import { CONFIG, GITHUB_RAW } from './config.js';
+import { CONFIG, GOV_API, ENGINE_API } from './config.js';
 import { connectWallet, disconnectWallet, getAddress, isConnected } from './wallet.js';
 import { resolveIdentity, formatTDH, shortAddress, verifyWave } from './api6529.js';
 import { listProposals, getProposal, getProposalVotes, tallyVotes, createProposal, hasVoted } from './proposals.js';
@@ -93,11 +93,10 @@ function renderUserArea() {
 // === DASHBOARD ===
 async function fetchConfig() {
   try {
-    const headers = CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {};
-    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.WAVES_CONFIG_PATH}`, { headers });
+    // Fetch from engine's GitHub Pages (public, no auth needed)
+    const res = await fetch(`https://${CONFIG.ENGINE_OWNER}.github.io/${CONFIG.ENGINE_REPO}/${CONFIG.WAVES_CONFIG_PATH}?t=${Date.now()}`);
     if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    return JSON.parse(atob(data.content));
+    return res.json();
   } catch (e) {
     console.error('Config fetch failed:', e);
     return { waves: [], collections: [] };
@@ -347,11 +346,6 @@ async function handleVote(proposalId, vote) {
   if (btnYes) btnYes.disabled = true;
   if (btnNo) btnNo.disabled = true;
 
-  if (!ensureGitHubToken()) {
-    if (btnYes) btnYes.disabled = false;
-    if (btnNo) btnNo.disabled = false;
-    return;
-  }
 
   if (statusEl) statusEl.innerHTML = '<span class="status-pending">Signing with wallet...</span>';
 
@@ -451,7 +445,6 @@ async function renderCreateProposal() {
     if (!waveId) { showToast('Enter a wave ID', 'error'); return; }
     if (!reason) { showToast('Enter a reason', 'error'); return; }
 
-    if (!ensureGitHubToken()) return;
 
     const statusEl = document.getElementById('proposalStatus');
     const btn = document.getElementById('btnSubmitProposal');
@@ -810,7 +803,6 @@ async function renderCreateRequest() {
   document.getElementById('btnSubmitRequest').addEventListener('click', async () => {
     const text = document.getElementById('reqText').value.trim();
     if (!text) { showToast('Write your request', 'error'); return; }
-    if (!ensureGitHubToken()) return;
 
     const btn = document.getElementById('btnSubmitRequest');
     const statusEl = document.getElementById('requestStatus');
@@ -856,41 +848,6 @@ function showToast(message, type = 'info') {
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 5000);
 }
-
-// === GITHUB TOKEN SETUP ===
-// Check URL param for token (one-time setup link)
-const urlParams = new URLSearchParams(window.location.search);
-const tokenParam = urlParams.get('token');
-if (tokenParam) {
-  localStorage.setItem('memes24h_gh_token', tokenParam);
-  window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-  showToast('GitHub token saved!', 'success');
-}
-
-// Prompt for token when needed (before first proposal/vote)
-export function ensureGitHubToken() {
-  if (CONFIG.GITHUB_TOKEN) return true;
-
-  const token = prompt(
-    'To submit proposals and votes on-site, enter a GitHub Personal Access Token.\n\n' +
-    'Create one at: github.com/settings/personal-access-tokens/new\n' +
-    'Permissions needed: Issues (Read & Write) on the memes24h repo.\n\n' +
-    'This is saved locally in your browser only.'
-  );
-
-  if (token && token.trim()) {
-    localStorage.setItem('memes24h_gh_token', token.trim());
-    showToast('Token saved! You can now submit on-site.', 'success');
-    return true;
-  }
-  return false;
-}
-
-// Make it available globally for the settings link
-window.clearGHToken = function() {
-  localStorage.removeItem('memes24h_gh_token');
-  showToast('Token removed.', 'info');
-};
 
 // === ALERT BANNER ===
 async function updateAlertBanner() {
