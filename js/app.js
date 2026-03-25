@@ -107,7 +107,14 @@ async function renderDashboard() {
   currentView = 'dashboard';
   app.innerHTML = '<div class="loading">Loading proposals...</div>';
 
-  const [proposals, config] = await Promise.all([listProposals(), fetchConfig()]);
+  let proposals = [], config = { waves: [], collections: [] };
+  try {
+    [proposals, config] = await Promise.all([listProposals(), fetchConfig()]);
+  } catch (e) {
+    console.error('Dashboard load error:', e);
+    app.innerHTML = `<div class="empty-state">Error loading: ${e.message}. <a href="#/" onclick="location.reload()">Retry</a></div>`;
+    return;
+  }
 
   const activeProposals = proposals.filter(p => p.status === 'active');
   const pastProposals = proposals.filter(p => p.status !== 'active');
