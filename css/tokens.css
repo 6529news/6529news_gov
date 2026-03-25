@@ -1,104 +1,20 @@
-/* ============================================
-   6529 NEWS — Design System Tokens
-   Single source of truth for colors, fonts, spacing.
-   Import this file first in any page CSS.
-   ============================================ */
-
+/* =============================================
+   6529 NEWS — Design Tokens (shared)
+   Same tokens used by news card + governance.
+   ============================================= */
 :root {
-  /* --- COLORS --- */
-
-  /* Background layers (dark to light) */
-  --bg-deepest:    #0e0806;
-  --bg-deep:       #120a06;
-  --bg-base:       #1a0e08;
-  --bg-raised:     #2a1a10;
-  --bg-surface:    #1e1208;
-  --bg-surface-alt:#140c06;
-
-  /* Primary: crimson red (logo, accents, borders) */
-  --red:           #b22222;     /* THE red — all lines/borders/accents use this */
-  --red-dark:      #8b1a1a;     /* Only for gradient endpoints on filled backgrounds */
-  --red-bg:        rgba(178,34,34,0.25);
-  --red-bg-hover:  rgba(178,34,34,0.4);
-  --red-border:    rgba(178,34,34,0.5);
-  --red-glow:      rgba(178,34,34,0.5);
-
-  /* Accent: gold */
-  --gold:          #c8a84e;
-  --gold-bright:   #e8c65a;
-  --gold-dim:      rgba(200,168,78,0.6);
-  --gold-faint:    rgba(200,168,78,0.15);
-  --gold-border:   rgba(200,168,78,0.12);
-
-  /* Text */
-  --text:          #f0e6d0;     /* Primary text */
-  --text-muted:    rgba(240,230,208,0.55);
-  --text-dim:      rgba(240,230,208,0.35);
-  --text-summary:  rgba(240,230,208,0.82);
-
-  /* Status */
-  --green:         #00cc66;
-  --green-bg:      rgba(0,102,51,0.3);
-  --err:           #ff4444;
-  --err-bg:        rgba(136,0,0,0.3);
-
-  /* --- FONTS --- */
-  --font-display:  'Teko', sans-serif;       /* Logo, headings, labels */
-  --font-body:     'Oswald', sans-serif;     /* Body, summaries, UI */
-  --font-mono:     'Share Tech Mono', monospace;  /* Clock, counters */
-
-  /* --- SPACING (responsive) --- */
-  --space-xs:      clamp(4px, 0.5vw, 8px);
-  --space-sm:      clamp(8px, 1vw, 14px);
-  --space-md:      clamp(12px, 2vw, 20px);
-  --space-lg:      clamp(16px, 3vw, 28px);
-  --space-xl:      clamp(24px, 4vw, 40px);
-
-  /* --- SIZES (responsive) --- */
-  --topbar-h:      clamp(54px, 7.5vh, 76px);
-  --bar-h:         clamp(42px, 6vh, 62px);
-  --label-w:       clamp(80px, 10vw, 120px);
-
-  /* --- BORDERS --- */
-  --border-red:    3px solid var(--red);
-  --border-thin:   1px solid var(--gold-border);
-
-  /* --- SHARED GRADIENTS --- */
-  --grad-red:      linear-gradient(180deg, var(--red), var(--red-dark));
-  --grad-bg:       linear-gradient(180deg, var(--bg-raised), var(--bg-base));
-  --grad-surface:  linear-gradient(180deg, var(--bg-surface), var(--bg-surface-alt));
-}
-
-/* ============================================
-   REUSABLE COMPONENTS
-   ============================================ */
-
-/* Red-background badge (logo "6529", category tags, NEWS label) */
-.badge-red {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--text);
-  background: var(--grad-red);
-  padding: 10px 16px 7px;   /* more top to center Teko descenders */
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: 2px;
-}
-
-/* Gold text beside badge */
-.badge-gold {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 5px;
-  margin-left: 10px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-
-/* Username highlight */
-.username {
-  color: var(--gold);
-  font-weight: 600;
+  --c-bg-0: #0e0806;  --c-bg-1: #120a06;  --c-bg-2: #1a0e08;  --c-bg-3: #2a1a10;
+  --c-red: #b22222;  --c-red-dk: #8b1a1a;
+  --grad-red: linear-gradient(180deg, var(--c-red), var(--c-red-dk));
+  --c-gold: #c8a84e;  --c-gold-br: #e8c65a;
+  --c-gold-60: rgba(200,168,78,0.6);  --c-gold-15: rgba(200,168,78,0.15);
+  --c-gold-08: rgba(200,168,78,0.08);
+  --c-text: #f0e6d0;  --c-text-80: rgba(240,230,208,0.82);
+  --c-text-55: rgba(240,230,208,0.55); --c-text-35: rgba(240,230,208,0.35);
+  --f-display: 'Teko', sans-serif;
+  --f-body:    'Oswald', sans-serif;
+  --f-mono:    'Share Tech Mono', monospace;
+  --badge-py-t: 0.18em;  --badge-py-b: 0.12em;  --badge-px: 0.45em;
+  --green: #00cc66;  --green-bg: rgba(0,102,51,0.3);
+  --err: #ff4444;    --err-bg: rgba(136,0,0,0.3);
 }
