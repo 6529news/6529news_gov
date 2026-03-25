@@ -96,7 +96,7 @@ async function renderDashboard() {
   app.innerHTML = '<div class="loading">Loading proposals...</div>';
 
   const proposals = await listProposals();
-  const configRes = await fetch(`${GITHUB_RAW}/${CONFIG.WAVES_CONFIG_PATH}?t=${Date.now()}`);
+  const configRes = await fetch(`${GITHUB_API}/contents/${CONFIG.WAVES_CONFIG_PATH}`, { headers: CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {} }).then(async r => { const d = await r.json(); return new Response(atob(d.content)); });
   const config = await configRes.json();
 
   const activeProposals = proposals.filter(p => p.status === 'active');
@@ -479,7 +479,7 @@ async function renderCreateProposal() {
 async function renderConfig() {
   app.innerHTML = '<div class="loading">Loading config...</div>';
 
-  const res = await fetch(`${GITHUB_RAW}/${CONFIG.WAVES_CONFIG_PATH}?t=${Date.now()}`);
+  const res = await fetch(`${GITHUB_API}/contents/${CONFIG.WAVES_CONFIG_PATH}`, { headers: CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {} }).then(async r => { const d = await r.json(); return new Response(atob(d.content)); });
   const config = await res.json();
 
   app.innerHTML = `

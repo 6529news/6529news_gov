@@ -44,7 +44,8 @@ export async function listProposals() {
   }
 
   try {
-    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.PROPOSALS_PATH}`);
+    const headers = CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {};
+    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.PROPOSALS_PATH}`, { headers });
     if (!res.ok) return [];
 
     const files = await res.json();
@@ -52,7 +53,7 @@ export async function listProposals() {
 
     const proposals = await Promise.all(
       jsonFiles.map(async (f) => {
-        const r = await fetch(f.download_url);
+        const r = await fetch(f.download_url, { headers });
         return r.json();
       })
     );
@@ -75,9 +76,11 @@ export async function listProposals() {
 // Fetch a single proposal
 export async function getProposal(id) {
   try {
-    const res = await fetch(`${GITHUB_RAW}/${CONFIG.PROPOSALS_PATH}/${id}.json?t=${Date.now()}`);
+    const headers = CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {};
+    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.PROPOSALS_PATH}/${id}.json`, { headers });
     if (!res.ok) return null;
-    return res.json();
+    const data = await res.json();
+    return JSON.parse(atob(data.content));
   } catch {
     return null;
   }
@@ -86,7 +89,8 @@ export async function getProposal(id) {
 // Get votes for a proposal
 export async function getProposalVotes(proposalId) {
   try {
-    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.VOTES_PATH}/${proposalId}`);
+    const headers = CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {};
+    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.VOTES_PATH}/${proposalId}`, { headers });
     if (!res.ok) return [];
 
     const files = await res.json();
@@ -94,7 +98,7 @@ export async function getProposalVotes(proposalId) {
 
     const votes = await Promise.all(
       jsonFiles.map(async (f) => {
-        const r = await fetch(f.download_url);
+        const r = await fetch(f.download_url, { headers });
         return r.json();
       })
     );
@@ -151,9 +155,12 @@ export async function createProposal(action, waveId, reason) {
     throw new Error(`Insufficient TDH. You have ${formatTDH(identity.tdh)}, need ${formatTDH(CONFIG.MIN_TDH_PROPOSE)}.`);
   }
 
-  // Verify wave exists
-  const wave = await verifyWave(waveId);
-  if (!wave.exists) throw new Error('Wave not found on 6529.');
+  // Verify wave exists (skip for generic requests)
+  let wave = { exists: true, name: reason.substring(0, 60) };
+  if (action !== 'request') {
+    wave = await verifyWave(waveId);
+    if (!wave.exists) throw new Error('Wave not found on 6529.');
+  }
 
   // Sign the proposal
   const { signature, timestamp } = await signProposal(action, waveId, wave.name, reason);
@@ -198,7 +205,8 @@ export async function hasVoted(proposalId) {
   const primaryAddr = identity.primaryAddress.toLowerCase();
 
   try {
-    const res = await fetch(`${GITHUB_RAW}/${CONFIG.VOTES_PATH}/${proposalId}/${primaryAddr}.json?t=${Date.now()}`);
+    const headers = CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {};
+    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.VOTES_PATH}/${proposalId}/${primaryAddr}.json`, { headers });
     return res.ok;
   } catch {
     return false;
