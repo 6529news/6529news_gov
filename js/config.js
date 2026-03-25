@@ -50,7 +50,7 @@ export const CONFIG = {
 
   // Fine-grained PAT: can ONLY create issues on 6529news_gov (public repo)
   // Safe to embed — no access to code, secrets, or private repos
-  ISSUES_TOKEN: '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',
+  ISSUES_TOKEN: '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',
 
   // Cache TTLs (ms)
   CACHE_PROPOSALS_TTL: 5 * 60 * 1000,  // 5 min
