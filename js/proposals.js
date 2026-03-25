@@ -53,8 +53,15 @@ export async function listProposals() {
 
     const proposals = await Promise.all(
       jsonFiles.map(async (f) => {
-        const r = await fetch(f.download_url, { headers });
-        return r.json();
+        // For private repos, download_url is null — use content API instead
+        if (f.download_url) {
+          const r = await fetch(f.download_url, { headers });
+          return r.json();
+        } else {
+          const r = await fetch(f.url, { headers });
+          const data = await r.json();
+          return JSON.parse(atob(data.content));
+        }
       })
     );
 
@@ -98,8 +105,14 @@ export async function getProposalVotes(proposalId) {
 
     const votes = await Promise.all(
       jsonFiles.map(async (f) => {
-        const r = await fetch(f.download_url, { headers });
-        return r.json();
+        if (f.download_url) {
+          const r = await fetch(f.download_url, { headers });
+          return r.json();
+        } else {
+          const r = await fetch(f.url, { headers });
+          const data = await r.json();
+          return JSON.parse(atob(data.content));
+        }
       })
     );
 

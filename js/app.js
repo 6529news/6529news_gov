@@ -91,13 +91,24 @@ function renderUserArea() {
 }
 
 // === DASHBOARD ===
+async function fetchConfig() {
+  try {
+    const headers = CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {};
+    const res = await fetch(`${GITHUB_API}/contents/${CONFIG.WAVES_CONFIG_PATH}`, { headers });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    return JSON.parse(atob(data.content));
+  } catch (e) {
+    console.error('Config fetch failed:', e);
+    return { waves: [], collections: [] };
+  }
+}
+
 async function renderDashboard() {
   currentView = 'dashboard';
   app.innerHTML = '<div class="loading">Loading proposals...</div>';
 
-  const proposals = await listProposals();
-  const configRes = await fetch(`${GITHUB_API}/contents/${CONFIG.WAVES_CONFIG_PATH}`, { headers: CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {} }).then(async r => { const d = await r.json(); return new Response(atob(d.content)); });
-  const config = await configRes.json();
+  const [proposals, config] = await Promise.all([listProposals(), fetchConfig()]);
 
   const activeProposals = proposals.filter(p => p.status === 'active');
   const pastProposals = proposals.filter(p => p.status !== 'active');
@@ -479,8 +490,7 @@ async function renderCreateProposal() {
 async function renderConfig() {
   app.innerHTML = '<div class="loading">Loading config...</div>';
 
-  const res = await fetch(`${GITHUB_API}/contents/${CONFIG.WAVES_CONFIG_PATH}`, { headers: CONFIG.GITHUB_TOKEN ? { 'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}` } : {} }).then(async r => { const d = await r.json(); return new Response(atob(d.content)); });
-  const config = await res.json();
+  const config = await fetchConfig();
 
   app.innerHTML = `
     <a href="#/" class="back-link">&larr; Back to Dashboard</a>
