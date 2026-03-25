@@ -62,7 +62,7 @@ window.addEventListener('wallet-changed', async (e) => {
 });
 
 // === USER AREA ===
-function renderUserArea() {
+async function renderUserArea() {
   if (!userIdentity) {
     userArea.innerHTML = `
       <button class="btn btn-connect" onclick="connectWalletBtn()">Connect Wallet</button>
@@ -70,11 +70,23 @@ function renderUserArea() {
     return;
   }
 
+  // Calculate TDH budget
+  let allocatedTDH = 0, availableTDH = userIdentity.tdh;
+  try {
+    const { total } = await getAllocatedTDH(userIdentity.primaryAddress);
+    allocatedTDH = total;
+    availableTDH = Math.max(0, userIdentity.tdh - total);
+  } catch {}
+
   const delegateTag = userIdentity.isDelegate ? '<span class="tag-delegate">via delegate</span>' : '';
   const pfpSrc = userIdentity.pfp
     ? (userIdentity.pfp.startsWith('ipfs://') ? userIdentity.pfp.replace('ipfs://', 'https://ipfs.io/ipfs/') : userIdentity.pfp)
     : '';
   const pfpHtml = pfpSrc ? `<img src="${pfpSrc}" class="user-pfp" alt="">` : '<div class="user-pfp-placeholder"></div>';
+
+  const budgetHtml = allocatedTDH > 0
+    ? `${formatTDH(availableTDH)} free &middot; ${formatTDH(allocatedTDH)} used`
+    : `${formatTDH(userIdentity.tdh)} TDH`;
 
   userArea.innerHTML = `
     <div class="user-info">
@@ -82,7 +94,7 @@ function renderUserArea() {
         ${pfpHtml}
         <div class="user-details">
           <div class="user-handle">${userIdentity.handle || shortAddress(userIdentity.address)} ${delegateTag}</div>
-          <div class="user-tdh">${formatTDH(userIdentity.tdh)} TDH &middot; Level ${userIdentity.level}</div>
+          <div class="user-tdh">${budgetHtml} &middot; Level ${userIdentity.level}</div>
         </div>
       </a>
       <button class="btn btn-sm btn-disconnect" onclick="disconnectWalletBtn()">Disconnect</button>

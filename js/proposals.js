@@ -44,8 +44,9 @@ export async function listProposals() {
 
     for (const issue of issues) {
       const labels = issue.labels.map(l => l.name);
-      // Skip vote issues
-      if (labels.includes('vote')) continue;
+      // Skip vote issues and test issues
+      if (labels.includes('vote') || labels.includes('test')) continue;
+      if (issue.title.toLowerCase().includes('test') || issue.title.toLowerCase().includes('delete')) continue;
 
       const data = parseIssueJSON(issue.body);
       if (!data || !data.proposer) continue;
