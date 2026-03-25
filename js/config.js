@@ -3,8 +3,8 @@
 
 export const CONFIG = {
   // GitHub repo - change these when transferring ownership
-  REPO_OWNER: 'sertx92',
-  REPO_NAME: 'memes24h',
+  REPO_OWNER: '6529news',
+  REPO_NAME: '6529news_engine',
   REPO_BRANCH: 'main',
 
   // Governance thresholds
