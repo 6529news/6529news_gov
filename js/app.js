@@ -468,18 +468,9 @@ async function renderCreateProposal() {
         <label>Category</label>
         <select id="propAction">
           <option value="general">General Request</option>
-          <option value="add">Add Wave</option>
-          <option value="remove">Remove Wave</option>
           <option value="graphics">Graphics</option>
           <option value="governance">Governance Protocol</option>
         </select>
-      </div>
-
-      <div class="form-group" id="waveIdGroup">
-        <label>Wave ID (UUID from 6529.io URL)</label>
-        <input type="text" id="propWaveId" placeholder="e.g. b38288e6-ca9d-45ce-8323-3dc5e094f04e">
-        <div class="form-hint">Copy the wave UUID from the 6529.io URL</div>
-        <div id="waveVerify" class="wave-verify"></div>
       </div>
 
       <div class="form-group">
@@ -526,37 +517,11 @@ async function renderCreateProposal() {
     });
   });
 
-  // Show/hide wave ID field based on action
-  const waveIdGroup = document.getElementById('waveIdGroup');
-  const actionSelect = document.getElementById('propAction');
-  function updateWaveField() {
-    const needsWave = ['add', 'remove'].includes(actionSelect.value);
-    waveIdGroup.style.display = needsWave ? '' : 'none';
-  }
-  actionSelect.addEventListener('change', updateWaveField);
-  updateWaveField();
-
-  // Verify wave on blur
-  document.getElementById('propWaveId').addEventListener('blur', async (e) => {
-    const waveId = e.target.value.trim();
-    const verifyEl = document.getElementById('waveVerify');
-    if (!waveId) { verifyEl.innerHTML = ''; return; }
-    verifyEl.innerHTML = '<span class="verifying">Verifying...</span>';
-    const wave = await verifyWave(waveId);
-    verifyEl.innerHTML = wave.exists
-      ? `<span class="verified">Found: ${wave.name}</span>`
-      : '<span class="not-found">Wave not found on 6529.io</span>';
-  });
-
   // Submit handler
   document.getElementById('btnSubmitProposal').addEventListener('click', async () => {
     const action = document.getElementById('propAction').value;
-    const needsWave = ['add', 'remove'].includes(action);
-    const waveId = needsWave ? document.getElementById('propWaveId').value.trim() : 'n/a';
     const reason = document.getElementById('propReason').value.trim();
     const allocatedTDH = parseInt(document.getElementById('tdhInput').value);
-
-    if (needsWave && !waveId) { showToast('Enter a wave ID', 'error'); return; }
     if (!reason) { showToast('Enter a description', 'error'); return; }
     if (allocatedTDH < minAlloc) { showToast(`Minimum ${formatTDH(minAlloc)} TDH`, 'error'); return; }
 
@@ -567,7 +532,7 @@ async function renderCreateProposal() {
     if (statusEl) statusEl.innerHTML = '<span class="status-pending">Signing proposal with wallet...</span>';
 
     try {
-      const result = await createProposal(action, waveId, reason, allocatedTDH);
+      const result = await createProposal(action, 'n/a', reason, allocatedTDH);
       showToast('Proposal submitted!', 'success');
       // Force cache clear and redirect immediately to dashboard
       invalidateCache();
