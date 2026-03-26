@@ -229,7 +229,7 @@ async function renderProposalDetail(id) {
   }
 
   const votes = await getProposalVotes(id);
-  const tally = await tallyVotes(votes);
+  const tally = await tallyVotes(votes, proposal);
   const isExpired = new Date(proposal.expiresAt) < new Date();
   const daysLeft = Math.max(0, Math.ceil((new Date(proposal.expiresAt) - new Date()) / 86400000));
   const voted = userIdentity ? await hasVoted(id) : false;

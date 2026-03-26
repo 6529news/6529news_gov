@@ -106,8 +106,14 @@ export async function getProposalVotes(proposalId) {
 }
 
 // Tally votes with live TDH lookup
-export async function tallyVotes(votes) {
+export async function tallyVotes(votes, proposal = null) {
   let yesTDH = 0, noTDH = 0, yesCount = 0, noCount = 0;
+
+  // Proposer's allocated TDH counts as YES
+  if (proposal && proposal.proposerAllocatedTDH) {
+    yesTDH += proposal.proposerAllocatedTDH;
+    yesCount++;
+  }
 
   const detailed = await Promise.all(
     votes.map(async (v) => {
