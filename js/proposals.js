@@ -180,7 +180,16 @@ export async function createProposal(action, waveId, reason, allocatedTDH) {
 
   const result = await workerPost('/api/proposal', { proposal, signature });
 
-  proposalsCache = null;
+  // Add to local cache immediately so it's visible without waiting for GitHub API
+  proposal.issueNumber = result.issue?.number;
+  proposal.issueUrl = result.issue?.html_url;
+  if (proposalsCache) {
+    proposalsCache.unshift(proposal);
+  } else {
+    proposalsCache = [proposal];
+  }
+  proposalsCacheTs = Date.now();
+
   return { proposal, issue: result.issue };
 }
 

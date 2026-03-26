@@ -20,10 +20,9 @@ function route() {
   const hash = window.location.hash || '#/';
   if (hash === '#/' || hash === '#') renderDashboard();
   else if (hash.startsWith('#/proposal/')) renderProposalDetail(hash.split('#/proposal/')[1]);
+  else if (hash.startsWith('#/request/')) renderProposalDetail(hash.split('#/request/')[1]);
   else if (hash === '#/create') renderCreateProposal();
-  else if (hash === '#/create-request') renderCreateRequest();
-  else if (hash === '#/requests') renderRequests();
-  else if (hash.startsWith('#/request/')) renderRequestDetail(hash.split('#/request/')[1]);
+  else if (hash === '#/requests') renderDashboard();
   else if (hash === '#/config') renderConfig();
   else if (hash === '#/profile') renderProfile();
   else if (hash.startsWith('#/profile/')) renderProfile(hash.split('#/profile/')[1]);
@@ -468,9 +467,9 @@ async function renderCreateProposal() {
       <div class="form-group">
         <label>Category</label>
         <select id="propAction">
+          <option value="general">General Request</option>
           <option value="add">Add Wave</option>
           <option value="remove">Remove Wave</option>
-          <option value="general">General</option>
           <option value="graphics">Graphics</option>
           <option value="governance">Governance Protocol</option>
         </select>
