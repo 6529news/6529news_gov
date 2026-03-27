@@ -159,7 +159,7 @@ async function renderDashboard() {
   html += `
     <div class="section-header" style="margin-top:32px">
       <h2>Current News Sources</h2>
-      <a href="#/config" class="btn btn-sm">View Config</a>
+      <a href="#/config" class="btn btn-sm">How It Works</a>
     </div>
     <div class="config-grid">
       ${config.waves.map(w => `
@@ -549,16 +549,73 @@ async function renderCreateProposal() {
 
 // === CONFIG VIEW ===
 async function renderConfig() {
-  app.innerHTML = '<div class="loading">Loading config...</div>';
+  app.innerHTML = '<div class="loading">Loading...</div>';
 
   const config = await fetchConfig();
 
   app.innerHTML = `
     <a href="#/" class="back-link">&larr; Back to Dashboard</a>
-    <h2>Current News Configuration</h2>
-    <p class="form-sub">This is what the MEMES 24H news card currently monitors. Create a proposal to change it.</p>
+    <h2>How 6529 NEWS Works</h2>
+    <p class="form-sub">All data is pulled automatically from 6529.io and OpenSea APIs. No manual intervention needed.</p>
 
-    <h3 style="margin-top:24px">Waves</h3>
+    <h3 style="margin-top:24px">Main News Cards</h3>
+    <div class="config-detail-grid">
+      <div class="config-detail-item">
+        <div class="config-detail-name">Minting Status</div>
+        <div class="config-detail-meta"><span class="config-type">auto</span><span>Minting Tomorrow → Minting Today → Still Minting → Next Drop</span></div>
+      </div>
+      <div class="config-detail-item">
+        <div class="config-detail-name">Top Memes (Projected Vote)</div>
+        <div class="config-detail-meta"><span class="config-type">leaderboard</span><span>From Main Stage wave, updates every 4h</span></div>
+      </div>
+      <div class="config-detail-item">
+        <div class="config-detail-name">Top SuperRare (Current Vote)</div>
+        <div class="config-detail-meta"><span class="config-type">leaderboard</span><span>Random preview from top 10, updates every 4h</span></div>
+      </div>
+      <div class="config-detail-item">
+        <div class="config-detail-name">New Submissions (7d)</div>
+        <div class="config-detail-meta"><span class="config-type">auto</span><span>All submissions with media, ranked by TDH, 3 preview images</span></div>
+      </div>
+      <div class="config-detail-item">
+        <div class="config-detail-name">Sales Recap</div>
+        <div class="config-detail-meta"><span class="config-type">opensea</span><span>24h sales, volume, top 3 sold cards with preview</span></div>
+      </div>
+      <div class="config-detail-item">
+        <div class="config-detail-name">Hot Wave Detection</div>
+        <div class="config-detail-meta"><span class="config-type">ai</span><span>Any wave with 200+ msgs/h triggers AI summary (level-weighted). Auto-removes when activity drops.</span></div>
+      </div>
+      <div class="config-detail-item">
+        <div class="config-detail-name">punk6529 Activity</div>
+        <div class="config-detail-meta"><span class="config-type">hourly</span><span>Checked every hour. "Active Now" headline when posting. Full card if 5+ msgs/24h with AI summary.</span></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:24px">NEWS Headline Strip</h3>
+    <div class="config-detail-grid">
+      <div class="config-detail-item"><div class="config-detail-name">Active Waves</div><div class="config-detail-meta"><span class="config-type">auto</span><span>Top 3 most active waves in last 4h, auto-discovered</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">punk6529 Last Seen</div><div class="config-detail-meta"><span class="config-type">hourly</span><span>Wave and timestamp of last message</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">Top Sale 24h</div><div class="config-detail-meta"><span class="config-type">opensea</span><span>Highest sale with card name and ETH price</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">Pebbles Market</div><div class="config-detail-meta"><span class="config-type">opensea</span><span>Floor price, sales count, last sale time</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">New Waves</div><div class="config-detail-meta"><span class="config-type">auto</span><span>Waves created in last 24h</span></div></div>
+    </div>
+
+    <h3 style="margin-top:24px">STATS Ticker</h3>
+    <div class="config-detail-grid">
+      <div class="config-detail-item"><div class="config-detail-name">Network TDH</div><div class="config-detail-meta"><span class="config-type">6529 api</span><span>Sum of all boosted TDH across all meme cards</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">Full Set Bid</div><div class="config-detail-meta"><span class="config-type">6529 api</span><span>Sum of highest offers across all cards</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">Holders / Full Set</div><div class="config-detail-meta"><span class="config-type">6529nfts</span><span>Collection holders count and full set holders count</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">#1 Memes</div><div class="config-detail-meta"><span class="config-type">leaderboard</span><span>Top projected vote artist and TDH</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">24h / 7d Volume</div><div class="config-detail-meta"><span class="config-type">opensea</span><span>Trading volume in ETH</span></div></div>
+    </div>
+
+    <h3 style="margin-top:24px">Update Schedule</h3>
+    <div class="config-detail-grid">
+      <div class="config-detail-item"><div class="config-detail-name">Every 4 hours</div><div class="config-detail-meta"><span>Full update: all news, stats, sales, submissions, waves</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">Every hour</div><div class="config-detail-meta"><span>punk6529 check + hot wave detection</span></div></div>
+      <div class="config-detail-item"><div class="config-detail-name">Mon/Wed/Fri 19:00 UTC</div><div class="config-detail-meta"><span>Post-selection minting update (1h after 18:00 CET selection)</span></div></div>
+    </div>
+
+    <h3 style="margin-top:24px">Monitored Waves</h3>
     <div class="config-detail-grid">
       ${config.waves.map(w => `
         <div class="config-detail-item">
@@ -566,23 +623,21 @@ async function renderConfig() {
           <div class="config-detail-meta">
             <span class="config-type">${w.type}</span>
             <span>Added by ${w.addedBy}</span>
-            <span>${new Date(w.addedAt).toLocaleDateString()}</span>
           </div>
-          <div class="config-detail-id">${w.id}</div>
         </div>
       `).join('')}
+      <div class="config-detail-item">
+        <div class="config-detail-name">+ All active waves (auto-detected)</div>
+        <div class="config-detail-meta"><span class="config-type">auto</span><span>Any wave with activity in last 4h appears in headlines</span></div>
+      </div>
     </div>
 
-    <h3 style="margin-top:24px">Collections (OpenSea)</h3>
+    <h3 style="margin-top:24px">Market Collections</h3>
     <div class="config-detail-grid">
       ${config.collections.map(c => `
         <div class="config-detail-item">
           <div class="config-detail-name">${c.name}</div>
-          <div class="config-detail-meta">
-            <span class="config-type">market</span>
-            <span>Added by ${c.addedBy}</span>
-          </div>
-          <div class="config-detail-id">${c.slug}</div>
+          <div class="config-detail-meta"><span class="config-type">opensea</span><span>${c.slug}</span></div>
         </div>
       `).join('')}
     </div>
