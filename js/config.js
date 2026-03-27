@@ -52,7 +52,7 @@ export const CONFIG = {
   WORKER_URL: 'https://6529news-gov.24h6529.workers.dev',
 
   // Cache TTLs (ms)
-  CACHE_PROPOSALS_TTL: 5 * 60 * 1000,  // 5 min
+  CACHE_PROPOSALS_TTL: 30 * 1000,  // 30 sec
   CACHE_PROFILE_TTL: 10 * 60 * 1000,   // 10 min
 };
 

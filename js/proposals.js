@@ -30,13 +30,13 @@ function parseIssueJSON(body) {
 
 // Fetch all proposals from GitHub Issues (public repo, no auth needed)
 export async function listProposals() {
-  if (proposalsCache && Date.now() - proposalsCacheTs < CONFIG.CACHE_PROPOSALS_TTL) {
+  if (proposalsCache && !window._forceNoCache && Date.now() - proposalsCacheTs < CONFIG.CACHE_PROPOSALS_TTL) {
     return proposalsCache;
   }
+  window._forceNoCache = false;
 
   try {
-    // Fetch all issues labeled as proposal, request, or any category
-    const res = await fetch(`${GOV_API}/issues?state=all&per_page=100&sort=created&direction=desc`);
+    const res = await fetch(`${GOV_API}/issues?state=all&per_page=100&sort=created&direction=desc&_t=${Date.now()}`, {cache: 'no-store'});
     if (!res.ok) return [];
 
     const issues = await res.json();
@@ -230,6 +230,8 @@ export async function deleteProposal(issueNumber, address) {
 export function invalidateCache() {
   proposalsCache = null;
   proposalsCacheTs = 0;
+  // Force next fetch to bypass any browser cache
+  window._forceNoCache = true;
 }
 
 // Calculate how much TDH is already allocated by a user across all active proposals
