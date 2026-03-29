@@ -504,8 +504,7 @@ async function renderProposalDetail(id) {
       await deleteProposal(myVote.issueNumber, userIdentity.primaryAddress);
       showToast('Vote withdrawn', 'success');
       invalidateCache();
-      renderUserArea();
-      renderProposalDetail(id);
+      setTimeout(() => { renderUserArea(); renderProposalDetail(id); }, 4000);
     } catch (err) {
       showToast(err.message, 'error');
       btnWithdraw.disabled = false;
@@ -547,7 +546,7 @@ async function handleVote(proposalId, vote, allocatedTDHOverride) {
 
     // Refresh the proposal view + user area after a short delay
     invalidateCache();
-    setTimeout(() => { renderUserArea(); renderProposalDetail(proposalId); }, 2000);
+    setTimeout(() => { renderUserArea(); renderProposalDetail(proposalId); }, 4000);
   } catch (err) {
     if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
     if (btnYes) btnYes.disabled = false;
@@ -583,7 +582,7 @@ async function handleChangeVote(proposalId, newVote, tally, allocatedTDHOverride
     const changeLabel = newVote === 'yes' ? 'Positive' : 'Negative';
     showToast(`Allocation changed to ${changeLabel} ${formatTDH(allocatedTDH)} TDH!`, 'success');
     invalidateCache();
-    setTimeout(() => { renderUserArea(); renderProposalDetail(proposalId); }, 2000);
+    setTimeout(() => { renderUserArea(); renderProposalDetail(proposalId); }, 4000);
   } catch (err) {
     if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
     if (btnChangeYes) btnChangeYes.disabled = false;
