@@ -143,7 +143,7 @@ async function renderDashboard() {
   const userVotedSet = new Set();
   if (userIdentity) {
     try {
-      const res = await fetch(`${GOV_API}/issues?labels=vote&state=open&per_page=100`, {cache: 'no-store'});
+      const res = await fetch(`${CONFIG.WORKER_URL}/api/issues?labels=vote&state=open&per_page=100`, {cache: 'no-store'});
       if (res.ok) {
         const voteIssues = await res.json();
         const primaryAddr = userIdentity.primaryAddress.toLowerCase();

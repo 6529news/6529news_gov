@@ -60,3 +60,5 @@ export const CONFIG = {
 export const GOV_API = `https://api.github.com/repos/${CONFIG.GOV_OWNER}/${CONFIG.GOV_REPO}`;
 export const GOV_RAW = `https://raw.githubusercontent.com/${CONFIG.GOV_OWNER}/${CONFIG.GOV_REPO}/${CONFIG.GOV_BRANCH}`;
 export const ENGINE_API = `https://api.github.com/repos/${CONFIG.ENGINE_OWNER}/${CONFIG.ENGINE_REPO}`;
+// Worker proxy for issues (avoids GitHub API rate limit)
+export const WORKER_ISSUES_API = `${CONFIG.WORKER_URL}/api/issues`;

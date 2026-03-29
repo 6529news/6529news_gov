@@ -1,7 +1,7 @@
 // MEMES 24H Governance - Proposals Management
 // Proposals/votes on public gov repo, issues via embedded token
 
-import { CONFIG, GOV_API } from './config.js';
+import { CONFIG, GOV_API, WORKER_ISSUES_API } from './config.js';
 import { resolveIdentity, getTDH, verifyWave, formatTDH } from './api6529.js';
 import { getAddress, signProposal } from './wallet.js';
 
@@ -36,7 +36,7 @@ export async function listProposals() {
   window._forceNoCache = false;
 
   try {
-    const res = await fetch(`${GOV_API}/issues?state=all&per_page=100&sort=created&direction=desc&_t=${Date.now()}`, {cache: 'no-store'});
+    const res = await fetch(`${WORKER_ISSUES_API}?state=all&per_page=100&sort=created&direction=desc&_t=${Date.now()}`, {cache: 'no-store'});
     if (!res.ok) return [];
 
     const issues = await res.json();
@@ -86,7 +86,7 @@ export async function getProposal(id) {
 // Get votes for a proposal from GitHub Issues
 export async function getProposalVotes(proposalId) {
   try {
-    const res = await fetch(`${GOV_API}/issues?labels=vote&state=all&per_page=100`);
+    const res = await fetch(`${WORKER_ISSUES_API}?labels=vote&state=all&per_page=100`);
     if (!res.ok) return [];
 
     const issues = await res.json();
