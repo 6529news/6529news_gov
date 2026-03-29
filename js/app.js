@@ -277,7 +277,7 @@ async function renderProposalDetail(id) {
     } else {
       voteSection = `
       <div class="vote-panel">
-        <h3>Cast Your Vote</h3>
+        <h3>Allocate TDH</h3>
         <div class="tdh-allocator">
           <div class="tdh-allocator-header">
             <label>TDH to allocate</label>
@@ -295,8 +295,8 @@ async function renderProposalDetail(id) {
           </div>
         </div>
         <div class="vote-actions">
-          <button class="btn btn-yes" id="btnYes">Vote YES</button>
-          <button class="btn btn-no" id="btnNo">Vote NO</button>
+          <button class="btn btn-yes" id="btnYes">+ Positive TDH</button>
+          <button class="btn btn-no" id="btnNo">- Negative TDH</button>
         </div>
         <div id="voteStatus" class="vote-status"></div>
       </div>
@@ -307,23 +307,24 @@ async function renderProposalDetail(id) {
       (v.voter || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase() ||
       (v.submittedBy || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase()
     );
-    const voteLabel = userVote ? userVote.vote.toUpperCase() : '';
-    const voteTDH = userVote ? formatTDH(userVote.allocatedTDH || userVote.effectiveTDH) : '';
+    const voteType = userVote?.vote === 'yes' ? 'Positive' : 'Negative';
+    const voteTDH = userVote?.allocatedTDH || userVote?.effectiveTDH || 0;
+    const maxTDH = availableTDH + voteTDH;
     if (proposal.status === 'active' && !isExpired) {
       voteSection = `
       <div class="vote-panel">
         <div class="voted-msg" style="margin-bottom:12px">
-          Your current vote: <strong class="vote-${userVote?.vote}">${voteLabel}</strong> with ${voteTDH} TDH
+          Your allocation: <strong class="vote-${userVote?.vote}">${voteType} ${formatTDH(voteTDH)} TDH</strong>
         </div>
-        <h3>Change Your Vote</h3>
+        <h3>Modify Allocation</h3>
         <div class="tdh-allocator">
           <div class="tdh-allocator-header">
             <label>TDH to allocate</label>
-            <span class="tdh-allocator-max">Available: ${formatTDH(availableTDH + (userVote?.allocatedTDH || 0))}${allocatedInfo}</span>
+            <span class="tdh-allocator-max">Available: ${formatTDH(maxTDH)}${allocatedInfo}</span>
           </div>
           <div class="tdh-slider-row">
-            <input type="range" id="tdhSlider" min="1" max="${availableTDH + (userVote?.allocatedTDH || 0)}" value="${userVote?.allocatedTDH || availableTDH}" class="tdh-slider">
-            <input type="number" id="tdhInput" min="1" max="${availableTDH + (userVote?.allocatedTDH || 0)}" value="${userVote?.allocatedTDH || availableTDH}" class="tdh-input">
+            <input type="range" id="tdhSlider" min="1" max="${maxTDH}" value="${voteTDH}" class="tdh-slider">
+            <input type="number" id="tdhInput" min="1" max="${maxTDH}" value="${voteTDH}" class="tdh-input">
           </div>
           <div class="tdh-presets">
             <button class="btn btn-sm tdh-preset" data-pct="25">25%</button>
@@ -333,15 +334,15 @@ async function renderProposalDetail(id) {
           </div>
         </div>
         <div class="vote-actions">
-          <button class="btn btn-yes" id="btnChangeYes">Change to YES</button>
-          <button class="btn btn-no" id="btnChangeNo">Change to NO</button>
+          <button class="btn btn-yes" id="btnChangeYes">Confirm as + Positive</button>
+          <button class="btn btn-no" id="btnChangeNo">Confirm as - Negative</button>
           <button class="btn btn-sm" id="btnWithdraw" style="margin-left:auto">Withdraw</button>
         </div>
         <div id="voteStatus" class="vote-status"></div>
       </div>`;
     } else {
       voteSection = `<div class="voted-msg">
-        You voted <strong>${voteLabel}</strong> with ${voteTDH} TDH.
+        Your allocation: <strong>${voteType} ${formatTDH(voteTDH)} TDH</strong>
       </div>`;
     }
   } else if (!userIdentity) {
@@ -396,8 +397,8 @@ async function renderProposalDetail(id) {
           <div class="tally-fill" style="width: ${tally.progress}%"></div>
         </div>
         <div class="tally-detail">
-          <span class="tally-yes">YES: ${formatTDH(tally.yesTDH)} TDH (${tally.yesCount} votes)</span>
-          <span class="tally-no">NO: ${formatTDH(tally.noTDH)} TDH (${tally.noCount} votes)</span>
+          <span class="tally-yes">+ Positive: ${formatTDH(tally.yesTDH)} TDH (${tally.yesCount})</span>
+          <span class="tally-no">- Negative: ${formatTDH(tally.noTDH)} TDH (${tally.noCount})</span>
         </div>
       </div>
 
@@ -408,7 +409,7 @@ async function renderProposalDetail(id) {
           <h3>Votes</h3>
           ${tally.votes.map(v => `
             <div class="vote-item">
-              <span class="vote-badge vote-${v.vote}">${v.vote.toUpperCase()}</span>
+              <span class="vote-badge vote-${v.vote}">${v.vote === 'yes' ? '+ Positive' : '- Negative'}</span>
               <span class="vote-handle">${v.voterHandle || shortAddress(v.voter)}</span>
               <span class="vote-tdh">${formatTDH(v.effectiveTDH || v.currentTDH)} TDH${v.allocatedTDH ? ' (allocated)' : ''}</span>
             </div>
@@ -521,7 +522,8 @@ async function handleVote(proposalId, vote) {
       `;
     }
 
-    showToast(`Vote ${vote.toUpperCase()} submitted with ${formatTDH(allocatedTDH)} TDH!`, 'success');
+    const voteTypeLabel = vote === 'yes' ? 'Positive' : 'Negative';
+    showToast(`${voteTypeLabel} ${formatTDH(allocatedTDH)} TDH allocated!`, 'success');
 
     // Refresh the proposal view after a short delay to show updated tally
     invalidateCache();
@@ -561,7 +563,8 @@ async function handleChangeVote(proposalId, newVote, tally) {
     if (statusEl) statusEl.innerHTML = '<span class="status-pending">Signing new vote...</span>';
     const result = await submitVote(proposalId, newVote, allocatedTDH);
 
-    showToast(`Vote changed to ${newVote.toUpperCase()} with ${formatTDH(allocatedTDH)} TDH!`, 'success');
+    const changeLabel = newVote === 'yes' ? 'Positive' : 'Negative';
+    showToast(`Allocation changed to ${changeLabel} ${formatTDH(allocatedTDH)} TDH!`, 'success');
     invalidateCache();
     setTimeout(() => renderProposalDetail(proposalId), 2000);
   } catch (err) {
@@ -944,7 +947,7 @@ async function renderProfile(addressParam) {
           <div class="vote-history">
             ${voteHistory.map(v => `
               <div class="vote-history-item">
-                <span class="vote-badge vote-${v.vote}">${v.vote.toUpperCase()}</span>
+                <span class="vote-badge vote-${v.vote}">${v.vote === 'yes' ? '+ Positive' : '- Negative'}</span>
                 <a href="#/proposal/${v.proposalId}" class="vote-history-wave">${v.waveName}</a>
                 <span class="vote-history-tdh">${formatTDH(v.tdhAtVote)} TDH</span>
                 <span class="proposal-status status-${v.status}">${v.status.toUpperCase()}</span>
