@@ -2,7 +2,7 @@
 // Proposals/votes on public gov repo, issues via embedded token
 
 import { CONFIG, GOV_API, WORKER_ISSUES_API } from './config.js';
-import { resolveIdentity, getTDH, verifyWave, formatTDH } from './api6529.js';
+import { resolveIdentity, verifyWave, formatTDH } from './api6529.js';
 import { getAddress, signProposal } from './wallet.js';
 
 let proposalsCache = null;
@@ -107,26 +107,20 @@ export async function getProposalVotes(proposalId) {
   }
 }
 
-// Tally votes with live TDH lookup
+// Tally votes using TDH stored at vote time (GitHub as source of truth)
 export async function tallyVotes(votes, proposal = null) {
   let yesTDH = 0, noTDH = 0, yesCount = 0, noCount = 0;
 
-  // Proposer's allocated TDH counts as YES
+  // Proposer's allocated TDH counts as positive
   if (proposal && proposal.proposerAllocatedTDH) {
     yesTDH += proposal.proposerAllocatedTDH;
     yesCount++;
   }
 
-  const detailed = await Promise.all(
-    votes.map(async (v) => {
-      const currentTDH = await getTDH(v.voter);
-      // If API fails (returns 0), trust the allocated TDH from the vote
-      const effectiveTDH = currentTDH > 0
-        ? (v.allocatedTDH ? Math.min(v.allocatedTDH, currentTDH) : currentTDH)
-        : (v.allocatedTDH || 0);
-      return { ...v, currentTDH: currentTDH || v.voterTDH || 0, effectiveTDH, issueNumber: v.issueNumber };
-    })
-  );
+  const detailed = votes.map(v => {
+    const effectiveTDH = v.allocatedTDH || v.voterTDH || 0;
+    return { ...v, effectiveTDH, issueNumber: v.issueNumber };
+  });
 
   for (const v of detailed) {
     if (v.vote === 'yes') { yesTDH += v.effectiveTDH; yesCount++; }
