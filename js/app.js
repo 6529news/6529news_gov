@@ -2,7 +2,7 @@
 // Hash-based routing SPA
 
 import { CONFIG, GOV_API, ENGINE_API } from './config.js';
-import { connectWallet, disconnectWallet, getAddress, isConnected } from './wallet.js';
+import { connectWallet, disconnectWallet, getAddress, isConnected, tryReconnect } from './wallet.js';
 import { resolveIdentity, formatTDH, shortAddress, verifyWave } from './api6529.js';
 import { listProposals, getProposal, getProposalVotes, tallyVotes, createProposal, hasVoted, getAllocatedTDH, deleteProposal, invalidateCache } from './proposals.js';
 import { submitVote } from './voting.js';
@@ -1144,6 +1144,12 @@ async function updateAlertBanner() {
 }
 
 // === INIT ===
-renderUserArea();
-route();
-updateAlertBanner();
+(async () => {
+  const reconnected = await tryReconnect();
+  if (reconnected) {
+    userIdentity = await resolveIdentity(reconnected);
+  }
+  renderUserArea();
+  route();
+  updateAlertBanner();
+})();

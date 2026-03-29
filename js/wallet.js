@@ -29,10 +29,12 @@ export async function connectWallet() {
   }
 
   connectedAddress = accounts[0];
+  localStorage.setItem('gov_wallet', connectedAddress);
 
   // Listen for account changes
   eth.on('accountsChanged', (accs) => {
     connectedAddress = accs[0] || null;
+    localStorage.setItem('gov_wallet', connectedAddress || '');
     window.dispatchEvent(new CustomEvent('wallet-changed', { detail: { address: connectedAddress } }));
   });
 
@@ -43,10 +45,38 @@ export async function connectWallet() {
   return connectedAddress;
 }
 
+// Try to reconnect on page load (silent, no popup)
+export async function tryReconnect() {
+  const saved = localStorage.getItem('gov_wallet');
+  if (!saved) return null;
+  const eth = getProvider();
+  if (!eth) return null;
+  try {
+    const accounts = await eth.request({ method: 'eth_accounts' });
+    if (accounts && accounts.length > 0) {
+      const match = accounts.find(a => a.toLowerCase() === saved.toLowerCase());
+      if (match) {
+        connectedAddress = match;
+        eth.on('accountsChanged', (accs) => {
+          connectedAddress = accs[0] || null;
+          localStorage.setItem('gov_wallet', connectedAddress || '');
+          window.dispatchEvent(new CustomEvent('wallet-changed', { detail: { address: connectedAddress } }));
+        });
+        eth.on('chainChanged', () => {
+          window.dispatchEvent(new CustomEvent('wallet-changed', { detail: { address: connectedAddress } }));
+        });
+        return connectedAddress;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 // Disconnect (clear local state)
 export function disconnectWallet() {
   connectedAddress = null;
   provider = null;
+  localStorage.removeItem('gov_wallet');
   window.dispatchEvent(new CustomEvent('wallet-changed', { detail: { address: null } }));
 }
 
