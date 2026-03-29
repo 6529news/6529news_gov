@@ -139,21 +139,27 @@ async function renderDashboard() {
     </div>
   `;
 
-  // Check voted status with a single API call (all votes at once)
+  // Single API call: get all votes, build tally per proposal + user voted set
   const userVotedSet = new Set();
-  if (userIdentity) {
+  const proposalTallies = {}; // { proposalId: { yes: N, no: N, yesCount: N, noCount: N } }
+  {
     try {
       const res = await fetch(`${CONFIG.WORKER_URL}/api/issues?labels=vote&state=open&per_page=100`, {cache: 'no-store'});
       if (res.ok) {
         const voteIssues = await res.json();
-        const primaryAddr = userIdentity.primaryAddress.toLowerCase();
+        const primaryAddr = userIdentity ? userIdentity.primaryAddress.toLowerCase() : '';
         for (const issue of voteIssues) {
           const match = issue.body?.match(/```json\n([\s\S]*?)\n```/);
           if (match) {
             try {
               const v = JSON.parse(match[1]);
-              if ((v.voter || '').toLowerCase() === primaryAddr || (v.submittedBy || '').toLowerCase() === primaryAddr) {
-                userVotedSet.add(v.proposalId);
+              const pid = v.proposalId;
+              if (!proposalTallies[pid]) proposalTallies[pid] = { yes: 0, no: 0, yesCount: 0, noCount: 0 };
+              const tdh = v.allocatedTDH || v.voterTDH || 0;
+              if (v.vote === 'yes') { proposalTallies[pid].yes += tdh; proposalTallies[pid].yesCount++; }
+              else { proposalTallies[pid].no += tdh; proposalTallies[pid].noCount++; }
+              if (primaryAddr && ((v.voter || '').toLowerCase() === primaryAddr || (v.submittedBy || '').toLowerCase() === primaryAddr)) {
+                userVotedSet.add(pid);
               }
             } catch {}
           }
@@ -173,7 +179,7 @@ async function renderDashboard() {
   } else {
     html += '<div class="proposals-grid">';
     for (const p of activeProposals) {
-      html += renderProposalCard(p, userVotedSet.has(p.id));
+      html += renderProposalCard(p, userVotedSet.has(p.id), proposalTallies[p.id]);
     }
     html += '</div>';
   }
@@ -215,15 +221,21 @@ async function renderDashboard() {
 
 const ACTION_LABELS = { add: 'Add Wave', remove: 'Remove Wave', general: 'General', graphics: 'Graphics', governance: 'Governance', request: 'Request' };
 
-function renderProposalCard(p, userHasVoted = false) {
+function renderProposalCard(p, userHasVoted = false, tally = null) {
   const isExpired = new Date(p.expiresAt) < new Date();
   const statusClass = p.status === 'active' ? (isExpired ? 'status-expired' : 'status-active') : (p.status === 'passed' ? 'status-passed' : 'status-failed');
   const statusLabel = p.status === 'active' ? (isExpired ? 'EXPIRED' : 'ACTIVE') : p.status.toUpperCase();
   const daysLeft = Math.max(0, Math.ceil((new Date(p.expiresAt) - new Date()) / 86400000));
   const actionLabel = ACTION_LABELS[p.action] || p.action;
-  const tdhInfo = p.proposerAllocatedTDH ? ` · ${formatTDH(p.proposerAllocatedTDH)} TDH` : '';
   const link = p.action === 'request' ? `#/request/${p.id}` : `#/proposal/${p.id}`;
   const votedBadge = userHasVoted ? '<span class="proposal-voted-badge">✓ VOTED</span>' : '';
+
+  // Tally: include proposer's TDH
+  const proposerTDH = p.proposerAllocatedTDH || 0;
+  const yesTDH = (tally ? tally.yes : 0) + proposerTDH;
+  const noTDH = tally ? tally.no : 0;
+  const totalVotes = (tally ? tally.yesCount + tally.noCount : 0) + (proposerTDH > 0 ? 1 : 0);
+  const progress = Math.min(100, (yesTDH / CONFIG.TDH_THRESHOLD_PASS) * 100);
 
   return `
     <a href="${link}" class="proposal-card ${userHasVoted ? 'proposal-voted' : ''}">
@@ -234,8 +246,19 @@ function renderProposalCard(p, userHasVoted = false) {
       </div>
       <div class="proposal-wave">${p.waveName}</div>
       <div class="proposal-reason">${p.reason || ''}</div>
+      <div class="proposal-card-tally">
+        <div class="proposal-card-bar">
+          <div class="proposal-card-fill" style="width:${progress}%"></div>
+        </div>
+        <div class="proposal-card-stats">
+          <span class="tally-yes">+${formatTDH(yesTDH)}</span>
+          ${noTDH > 0 ? `<span class="tally-no">-${formatTDH(noTDH)}</span>` : ''}
+          <span class="proposal-card-votes">${totalVotes} vote${totalVotes !== 1 ? 's' : ''}</span>
+          <span class="proposal-card-pct">${progress.toFixed(0)}%</span>
+        </div>
+      </div>
       <div class="proposal-meta">
-        <span>by ${p.proposer.handle || shortAddress(p.proposer.address)}${tdhInfo}</span>
+        <span>by ${p.proposer.handle || shortAddress(p.proposer.address)}</span>
         <span>${p.status === 'active' && !isExpired ? daysLeft + 'd left' : ''}</span>
       </div>
     </a>

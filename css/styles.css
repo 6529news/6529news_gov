@@ -200,6 +200,14 @@ a:hover { color: var(--c-gold-br); text-decoration: underline; }
 
 .proposal-wave { font-family: var(--f-display); font-weight: 700; font-size: 16px; color: var(--c-text); margin-bottom: 6px; }
 .proposal-reason { font-size: 13px; color: var(--c-text-35); line-height: 1.4; margin-bottom: 10px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.proposal-card-tally { margin-bottom: 10px; }
+.proposal-card-bar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.proposal-card-fill { height: 100%; background: linear-gradient(90deg, var(--green, #0c6), rgba(0,204,102,0.6)); border-radius: 3px; transition: width 0.3s; }
+.proposal-card-stats { display: flex; align-items: center; gap: 8px; font-family: var(--f-display); font-size: 12px; }
+.proposal-card-stats .tally-yes { color: var(--green, #0c6); font-weight: 700; }
+.proposal-card-stats .tally-no { color: var(--err, #f44); font-weight: 700; }
+.proposal-card-votes { color: var(--c-text-35); }
+.proposal-card-pct { color: var(--c-gold); font-weight: 700; margin-left: auto; }
 .proposal-meta { display: flex; justify-content: space-between; font-family: var(--f-display); font-size: 11px; color: rgba(255,255,255,0.25); }
 
 /* ============================================
