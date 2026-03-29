@@ -242,6 +242,13 @@ a:hover { color: var(--c-gold-br); text-decoration: underline; }
 .voted-msg { text-align: center; padding: 16px; color: var(--c-text-55); font-family: var(--f-display); font-size: 14px; letter-spacing: 1px; }
 .voted-msg .btn { margin-top: 10px; }
 
+/* Bipolar slider */
+.tdh-current-label { font-family: var(--f-display); font-size: 22px; font-weight: 700; letter-spacing: 1px; color: var(--c-text-35); }
+.tdh-current-label.tdh-positive { color: var(--green, #0c6); }
+.tdh-current-label.tdh-negative { color: var(--err, #f44); }
+.tdh-range-label { font-family: var(--f-display); font-size: 11px; color: var(--c-text-35); flex-shrink: 0; min-width: 50px; text-align: center; }
+.tdh-slider-bipolar { flex: 1; }
+
 /* Voted badge on proposal cards */
 .proposal-voted { border-color: rgba(0,204,102,0.2); }
 .proposal-voted-badge {

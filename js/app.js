@@ -271,6 +271,9 @@ async function renderProposalDetail(id) {
   }
 
   let voteSection = '';
+  let currentSliderVal = 0;
+  let sliderMax = availableTDH;
+
   if (userIdentity && proposal.status === 'active' && !isExpired && !voted) {
     if (availableTDH <= 0) {
       voteSection = '<div class="voted-msg">All your TDH is allocated to other proposals/votes. Withdraw some to vote here.</div>';
@@ -280,69 +283,58 @@ async function renderProposalDetail(id) {
         <h3>Allocate TDH</h3>
         <div class="tdh-allocator">
           <div class="tdh-allocator-header">
-            <label>TDH to allocate</label>
+            <label id="tdhLabel" class="tdh-current-label">0 TDH</label>
             <span class="tdh-allocator-max">Available: ${formatTDH(availableTDH)}${allocatedInfo}</span>
           </div>
           <div class="tdh-slider-row">
-            <input type="range" id="tdhSlider" min="1" max="${availableTDH}" value="${availableTDH}" class="tdh-slider">
-            <input type="number" id="tdhInput" min="1" max="${availableTDH}" value="${availableTDH}" class="tdh-input">
-          </div>
-          <div class="tdh-presets">
-            <button class="btn btn-sm tdh-preset" data-pct="25">25%</button>
-            <button class="btn btn-sm tdh-preset" data-pct="50">50%</button>
-            <button class="btn btn-sm tdh-preset" data-pct="75">75%</button>
-            <button class="btn btn-sm tdh-preset" data-pct="100">100%</button>
+            <span class="tdh-range-label">-${formatTDH(availableTDH)}</span>
+            <input type="range" id="tdhSlider" min="${-availableTDH}" max="${availableTDH}" value="0" class="tdh-slider tdh-slider-bipolar">
+            <span class="tdh-range-label">+${formatTDH(availableTDH)}</span>
           </div>
         </div>
         <div class="vote-actions">
-          <button class="btn btn-yes" id="btnYes">+ Positive TDH</button>
-          <button class="btn btn-no" id="btnNo">- Negative TDH</button>
+          <button class="btn btn-primary" id="btnConfirm" disabled>Confirm Allocation</button>
         </div>
         <div id="voteStatus" class="vote-status"></div>
       </div>
     `;
+      sliderMax = availableTDH;
     }
   } else if (voted) {
     const userVote = tally.votes.find(v =>
       (v.voter || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase() ||
       (v.submittedBy || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase()
     );
-    const voteType = userVote?.vote === 'yes' ? 'Positive' : 'Negative';
     const voteTDH = userVote?.allocatedTDH || userVote?.effectiveTDH || 0;
+    const signedTDH = userVote?.vote === 'yes' ? voteTDH : -voteTDH;
     const maxTDH = availableTDH + voteTDH;
+    currentSliderVal = signedTDH;
+    sliderMax = maxTDH;
     if (proposal.status === 'active' && !isExpired) {
       voteSection = `
       <div class="vote-panel">
-        <div class="voted-msg" style="margin-bottom:12px">
-          Your allocation: <strong class="vote-${userVote?.vote}">${voteType} ${formatTDH(voteTDH)} TDH</strong>
-        </div>
-        <h3>Modify Allocation</h3>
+        <h3>Your Allocation</h3>
         <div class="tdh-allocator">
           <div class="tdh-allocator-header">
-            <label>TDH to allocate</label>
+            <label id="tdhLabel" class="tdh-current-label ${signedTDH > 0 ? 'tdh-positive' : 'tdh-negative'}">${signedTDH > 0 ? '+' : ''}${formatTDH(signedTDH)} TDH</label>
             <span class="tdh-allocator-max">Available: ${formatTDH(maxTDH)}${allocatedInfo}</span>
           </div>
           <div class="tdh-slider-row">
-            <input type="range" id="tdhSlider" min="1" max="${maxTDH}" value="${voteTDH}" class="tdh-slider">
-            <input type="number" id="tdhInput" min="1" max="${maxTDH}" value="${voteTDH}" class="tdh-input">
-          </div>
-          <div class="tdh-presets">
-            <button class="btn btn-sm tdh-preset" data-pct="25">25%</button>
-            <button class="btn btn-sm tdh-preset" data-pct="50">50%</button>
-            <button class="btn btn-sm tdh-preset" data-pct="75">75%</button>
-            <button class="btn btn-sm tdh-preset" data-pct="100">100%</button>
+            <span class="tdh-range-label">-${formatTDH(maxTDH)}</span>
+            <input type="range" id="tdhSlider" min="${-maxTDH}" max="${maxTDH}" value="${signedTDH}" class="tdh-slider tdh-slider-bipolar">
+            <span class="tdh-range-label">+${formatTDH(maxTDH)}</span>
           </div>
         </div>
         <div class="vote-actions">
-          <button class="btn btn-yes" id="btnChangeYes">Confirm as + Positive</button>
-          <button class="btn btn-no" id="btnChangeNo">Confirm as - Negative</button>
+          <button class="btn btn-primary" id="btnConfirm" disabled>Confirm Change</button>
           <button class="btn btn-sm" id="btnWithdraw" style="margin-left:auto">Withdraw</button>
         </div>
         <div id="voteStatus" class="vote-status"></div>
       </div>`;
     } else {
+      const voteType = userVote?.vote === 'yes' ? '+' : '-';
       voteSection = `<div class="voted-msg">
-        Your allocation: <strong>${voteType} ${formatTDH(voteTDH)} TDH</strong>
+        Your allocation: <strong>${voteType}${formatTDH(voteTDH)} TDH</strong>
       </div>`;
     }
   } else if (!userIdentity) {
@@ -419,35 +411,33 @@ async function renderProposalDetail(id) {
     </div>
   `;
 
-  // TDH slider/input sync
+  // Bipolar slider logic
   const slider = document.getElementById('tdhSlider');
-  const input = document.getElementById('tdhInput');
-  if (slider && input) {
-    slider.addEventListener('input', () => { input.value = slider.value; });
-    input.addEventListener('input', () => { slider.value = input.value; });
-
-    // Preset buttons
-    document.querySelectorAll('.tdh-preset').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const pct = parseInt(btn.dataset.pct);
-        const val = Math.max(1, Math.floor(availableTDH * pct / 100));
-        slider.value = val;
-        input.value = val;
-      });
+  const label = document.getElementById('tdhLabel');
+  const btnConfirm = document.getElementById('btnConfirm');
+  if (slider && label) {
+    const initialVal = parseInt(slider.value);
+    slider.addEventListener('input', () => {
+      const val = parseInt(slider.value);
+      const sign = val > 0 ? '+' : '';
+      label.textContent = `${sign}${formatTDH(val)} TDH`;
+      label.className = `tdh-current-label ${val > 0 ? 'tdh-positive' : val < 0 ? 'tdh-negative' : ''}`;
+      if (btnConfirm) btnConfirm.disabled = (val === 0 || val === initialVal);
     });
   }
 
-  // Vote handlers (new vote)
-  const btnYes = document.getElementById('btnYes');
-  const btnNo = document.getElementById('btnNo');
-  if (btnYes) btnYes.addEventListener('click', () => handleVote(id, 'yes'));
-  if (btnNo) btnNo.addEventListener('click', () => handleVote(id, 'no'));
-
-  // Change vote handlers (withdraw old + submit new)
-  const btnChangeYes = document.getElementById('btnChangeYes');
-  const btnChangeNo = document.getElementById('btnChangeNo');
-  if (btnChangeYes) btnChangeYes.addEventListener('click', () => handleChangeVote(id, 'yes', tally));
-  if (btnChangeNo) btnChangeNo.addEventListener('click', () => handleChangeVote(id, 'no', tally));
+  // Confirm button: handles both new vote and change vote
+  if (btnConfirm) btnConfirm.addEventListener('click', () => {
+    const val = parseInt(slider.value);
+    if (val === 0) return;
+    const vote = val > 0 ? 'yes' : 'no';
+    const absVal = Math.abs(val);
+    if (voted) {
+      handleChangeVote(id, vote, tally, absVal);
+    } else {
+      handleVote(id, vote, absVal);
+    }
+  });
 
   // Delete handler
   const btnDel = document.getElementById('btnDelete');
@@ -493,10 +483,9 @@ async function renderProposalDetail(id) {
   });
 }
 
-async function handleVote(proposalId, vote) {
+async function handleVote(proposalId, vote, allocatedTDHOverride) {
   const statusEl = document.getElementById('voteStatus');
-  const tdhInput = document.getElementById('tdhInput');
-  const allocatedTDH = tdhInput ? parseInt(tdhInput.value) : userIdentity.tdh;
+  const allocatedTDH = allocatedTDHOverride || userIdentity.tdh;
 
   // Disable buttons
   const btnYes = document.getElementById('btnYes');
@@ -536,14 +525,11 @@ async function handleVote(proposalId, vote) {
   }
 }
 
-async function handleChangeVote(proposalId, newVote, tally) {
+async function handleChangeVote(proposalId, newVote, tally, allocatedTDHOverride) {
   const statusEl = document.getElementById('voteStatus');
-  const tdhInput = document.getElementById('tdhInput');
-  const allocatedTDH = tdhInput ? parseInt(tdhInput.value) : userIdentity.tdh;
-  const btnChangeYes = document.getElementById('btnChangeYes');
-  const btnChangeNo = document.getElementById('btnChangeNo');
-  if (btnChangeYes) btnChangeYes.disabled = true;
-  if (btnChangeNo) btnChangeNo.disabled = true;
+  const allocatedTDH = allocatedTDHOverride || userIdentity.tdh;
+  const btnConfirm = document.getElementById('btnConfirm');
+  if (btnConfirm) btnConfirm.disabled = true;
 
   if (statusEl) statusEl.innerHTML = '<span class="status-pending">Withdrawing old vote...</span>';
 
