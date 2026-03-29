@@ -60,10 +60,22 @@ export function isConnected() {
   return connectedAddress !== null;
 }
 
+// Ensure wallet is on the correct chain for EIP-712 signing
+async function ensureCorrectChain() {
+  const eth = getProvider();
+  const targetChainId = '0x' + CONFIG.EIP712_DOMAIN.chainId.toString(16);
+  try {
+    await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: targetChainId }] });
+  } catch (e) {
+    throw new Error('Please switch to Ethereum Mainnet in your wallet to sign.');
+  }
+}
+
 // Sign a proposal with EIP-712
 export async function signProposal(action, waveId, waveName, reason) {
   if (!connectedAddress) throw new Error('Wallet not connected');
   const eth = getProvider();
+  await ensureCorrectChain();
 
   const timestamp = Math.floor(Date.now() / 1000);
 
@@ -93,6 +105,7 @@ export async function signProposal(action, waveId, waveName, reason) {
 export async function signVote(proposalId, vote) {
   if (!connectedAddress) throw new Error('Wallet not connected');
   const eth = getProvider();
+  await ensureCorrectChain();
 
   const timestamp = Math.floor(Date.now() / 1000);
 

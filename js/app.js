@@ -139,6 +139,18 @@ async function renderDashboard() {
     </div>
   `;
 
+  // Pre-check which proposals the user has voted on
+  const userVotedSet = new Set();
+  if (userIdentity) {
+    const primaryAddr = userIdentity.primaryAddress.toLowerCase();
+    for (const p of activeProposals) {
+      const votes = await getProposalVotes(p.id);
+      if (votes.some(v => (v.voter || '').toLowerCase() === primaryAddr || (v.submittedBy || '').toLowerCase() === primaryAddr)) {
+        userVotedSet.add(p.id);
+      }
+    }
+  }
+
   if (activeProposals.length === 0) {
     html += '<div class="empty-state">No active proposals. ';
     if (userIdentity && userIdentity.tdh >= CONFIG.MIN_TDH_PROPOSE) {
@@ -150,7 +162,7 @@ async function renderDashboard() {
   } else {
     html += '<div class="proposals-grid">';
     for (const p of activeProposals) {
-      html += renderProposalCard(p);
+      html += renderProposalCard(p, userVotedSet.has(p.id));
     }
     html += '</div>';
   }
@@ -192,7 +204,7 @@ async function renderDashboard() {
 
 const ACTION_LABELS = { add: 'Add Wave', remove: 'Remove Wave', general: 'General', graphics: 'Graphics', governance: 'Governance', request: 'Request' };
 
-function renderProposalCard(p) {
+function renderProposalCard(p, userHasVoted = false) {
   const isExpired = new Date(p.expiresAt) < new Date();
   const statusClass = p.status === 'active' ? (isExpired ? 'status-expired' : 'status-active') : (p.status === 'passed' ? 'status-passed' : 'status-failed');
   const statusLabel = p.status === 'active' ? (isExpired ? 'EXPIRED' : 'ACTIVE') : p.status.toUpperCase();
@@ -200,11 +212,13 @@ function renderProposalCard(p) {
   const actionLabel = ACTION_LABELS[p.action] || p.action;
   const tdhInfo = p.proposerAllocatedTDH ? ` · ${formatTDH(p.proposerAllocatedTDH)} TDH` : '';
   const link = p.action === 'request' ? `#/request/${p.id}` : `#/proposal/${p.id}`;
+  const votedBadge = userHasVoted ? '<span class="proposal-voted-badge">✓ VOTED</span>' : '';
 
   return `
-    <a href="${link}" class="proposal-card">
+    <a href="${link}" class="proposal-card ${userHasVoted ? 'proposal-voted' : ''}">
       <div class="proposal-header">
         <span class="proposal-action action-${p.action}">${actionLabel}</span>
+        ${votedBadge}
         <span class="proposal-status ${statusClass}">${statusLabel}</span>
       </div>
       <div class="proposal-wave">${p.waveName}</div>
@@ -278,7 +292,14 @@ async function renderProposalDetail(id) {
     `;
     }
   } else if (voted) {
-    voteSection = '<div class="voted-msg">You have already voted on this proposal.</div>';
+    const userVote = tally.votes.find(v =>
+      (v.voter || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase() ||
+      (v.submittedBy || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase()
+    );
+    voteSection = `<div class="voted-msg">
+      You voted <strong>${userVote ? userVote.vote.toUpperCase() : ''}</strong> with ${userVote ? formatTDH(userVote.allocatedTDH || userVote.effectiveTDH) : ''} TDH.
+      ${proposal.status === 'active' && !isExpired ? '<button class="btn btn-no btn-sm" id="btnWithdraw">Withdraw Vote</button>' : ''}
+    </div>`;
   } else if (!userIdentity) {
     voteSection = '<div class="voted-msg">Connect your wallet to vote.</div>';
   }
@@ -395,6 +416,30 @@ async function renderProposalDetail(id) {
       btnDel.textContent = 'Delete Proposal';
     }
   });
+
+  // Withdraw vote handler
+  const btnWithdraw = document.getElementById('btnWithdraw');
+  if (btnWithdraw) btnWithdraw.addEventListener('click', async () => {
+    if (!confirm('Withdraw your vote? Your TDH will be freed.')) return;
+    btnWithdraw.disabled = true;
+    btnWithdraw.textContent = 'Withdrawing...';
+    try {
+      const primaryAddr = userIdentity.primaryAddress.toLowerCase();
+      const myVote = tally.votes.find(v =>
+        (v.voter || '').toLowerCase() === primaryAddr ||
+        (v.submittedBy || '').toLowerCase() === primaryAddr
+      );
+      if (!myVote || !myVote.issueNumber) throw new Error('Vote issue not found');
+      await deleteProposal(myVote.issueNumber, userIdentity.primaryAddress);
+      showToast('Vote withdrawn', 'success');
+      invalidateCache();
+      renderProposalDetail(id);
+    } catch (err) {
+      showToast(err.message, 'error');
+      btnWithdraw.disabled = false;
+      btnWithdraw.textContent = 'Withdraw Vote';
+    }
+  });
 }
 
 async function handleVote(proposalId, vote) {
@@ -427,6 +472,10 @@ async function handleVote(proposalId, vote) {
     }
 
     showToast(`Vote ${vote.toUpperCase()} submitted with ${formatTDH(allocatedTDH)} TDH!`, 'success');
+
+    // Refresh the proposal view after a short delay to show updated tally
+    invalidateCache();
+    setTimeout(() => renderProposalDetail(proposalId), 2000);
   } catch (err) {
     if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
     if (btnYes) btnYes.disabled = false;

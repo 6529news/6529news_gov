@@ -95,6 +95,8 @@ export async function getProposalVotes(proposalId) {
     for (const issue of issues) {
       const data = parseIssueJSON(issue.body);
       if (data && data.proposalId === proposalId) {
+        data.issueNumber = issue.number;
+        data.issueUrl = issue.html_url;
         votes.push(data);
       }
     }
@@ -119,7 +121,7 @@ export async function tallyVotes(votes, proposal = null) {
     votes.map(async (v) => {
       const currentTDH = await getTDH(v.voter);
       const effectiveTDH = v.allocatedTDH ? Math.min(v.allocatedTDH, currentTDH) : currentTDH;
-      return { ...v, currentTDH, effectiveTDH };
+      return { ...v, currentTDH, effectiveTDH, issueNumber: v.issueNumber };
     })
   );
 
