@@ -139,16 +139,27 @@ async function renderDashboard() {
     </div>
   `;
 
-  // Pre-check which proposals the user has voted on
+  // Check voted status with a single API call (all votes at once)
   const userVotedSet = new Set();
   if (userIdentity) {
-    const primaryAddr = userIdentity.primaryAddress.toLowerCase();
-    for (const p of activeProposals) {
-      const votes = await getProposalVotes(p.id);
-      if (votes.some(v => (v.voter || '').toLowerCase() === primaryAddr || (v.submittedBy || '').toLowerCase() === primaryAddr)) {
-        userVotedSet.add(p.id);
+    try {
+      const res = await fetch(`${GOV_API}/issues?labels=vote&state=open&per_page=100`, {cache: 'no-store'});
+      if (res.ok) {
+        const voteIssues = await res.json();
+        const primaryAddr = userIdentity.primaryAddress.toLowerCase();
+        for (const issue of voteIssues) {
+          const match = issue.body?.match(/```json\n([\s\S]*?)\n```/);
+          if (match) {
+            try {
+              const v = JSON.parse(match[1]);
+              if ((v.voter || '').toLowerCase() === primaryAddr || (v.submittedBy || '').toLowerCase() === primaryAddr) {
+                userVotedSet.add(v.proposalId);
+              }
+            } catch {}
+          }
+        }
       }
-    }
+    } catch {}
   }
 
   if (activeProposals.length === 0) {
@@ -296,10 +307,43 @@ async function renderProposalDetail(id) {
       (v.voter || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase() ||
       (v.submittedBy || '').toLowerCase() === userIdentity.primaryAddress.toLowerCase()
     );
-    voteSection = `<div class="voted-msg">
-      You voted <strong>${userVote ? userVote.vote.toUpperCase() : ''}</strong> with ${userVote ? formatTDH(userVote.allocatedTDH || userVote.effectiveTDH) : ''} TDH.
-      ${proposal.status === 'active' && !isExpired ? '<button class="btn btn-no btn-sm" id="btnWithdraw">Withdraw Vote</button>' : ''}
-    </div>`;
+    const voteLabel = userVote ? userVote.vote.toUpperCase() : '';
+    const voteTDH = userVote ? formatTDH(userVote.allocatedTDH || userVote.effectiveTDH) : '';
+    if (proposal.status === 'active' && !isExpired) {
+      voteSection = `
+      <div class="vote-panel">
+        <div class="voted-msg" style="margin-bottom:12px">
+          Your current vote: <strong class="vote-${userVote?.vote}">${voteLabel}</strong> with ${voteTDH} TDH
+        </div>
+        <h3>Change Your Vote</h3>
+        <div class="tdh-allocator">
+          <div class="tdh-allocator-header">
+            <label>TDH to allocate</label>
+            <span class="tdh-allocator-max">Available: ${formatTDH(availableTDH + (userVote?.allocatedTDH || 0))}${allocatedInfo}</span>
+          </div>
+          <div class="tdh-slider-row">
+            <input type="range" id="tdhSlider" min="1" max="${availableTDH + (userVote?.allocatedTDH || 0)}" value="${userVote?.allocatedTDH || availableTDH}" class="tdh-slider">
+            <input type="number" id="tdhInput" min="1" max="${availableTDH + (userVote?.allocatedTDH || 0)}" value="${userVote?.allocatedTDH || availableTDH}" class="tdh-input">
+          </div>
+          <div class="tdh-presets">
+            <button class="btn btn-sm tdh-preset" data-pct="25">25%</button>
+            <button class="btn btn-sm tdh-preset" data-pct="50">50%</button>
+            <button class="btn btn-sm tdh-preset" data-pct="75">75%</button>
+            <button class="btn btn-sm tdh-preset" data-pct="100">100%</button>
+          </div>
+        </div>
+        <div class="vote-actions">
+          <button class="btn btn-yes" id="btnChangeYes">Change to YES</button>
+          <button class="btn btn-no" id="btnChangeNo">Change to NO</button>
+          <button class="btn btn-sm" id="btnWithdraw" style="margin-left:auto">Withdraw</button>
+        </div>
+        <div id="voteStatus" class="vote-status"></div>
+      </div>`;
+    } else {
+      voteSection = `<div class="voted-msg">
+        You voted <strong>${voteLabel}</strong> with ${voteTDH} TDH.
+      </div>`;
+    }
   } else if (!userIdentity) {
     voteSection = '<div class="voted-msg">Connect your wallet to vote.</div>';
   }
@@ -392,11 +436,17 @@ async function renderProposalDetail(id) {
     });
   }
 
-  // Vote handlers
+  // Vote handlers (new vote)
   const btnYes = document.getElementById('btnYes');
   const btnNo = document.getElementById('btnNo');
   if (btnYes) btnYes.addEventListener('click', () => handleVote(id, 'yes'));
   if (btnNo) btnNo.addEventListener('click', () => handleVote(id, 'no'));
+
+  // Change vote handlers (withdraw old + submit new)
+  const btnChangeYes = document.getElementById('btnChangeYes');
+  const btnChangeNo = document.getElementById('btnChangeNo');
+  if (btnChangeYes) btnChangeYes.addEventListener('click', () => handleChangeVote(id, 'yes', tally));
+  if (btnChangeNo) btnChangeNo.addEventListener('click', () => handleChangeVote(id, 'no', tally));
 
   // Delete handler
   const btnDel = document.getElementById('btnDelete');
@@ -480,6 +530,44 @@ async function handleVote(proposalId, vote) {
     if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
     if (btnYes) btnYes.disabled = false;
     if (btnNo) btnNo.disabled = false;
+    showToast(err.message, 'error');
+  }
+}
+
+async function handleChangeVote(proposalId, newVote, tally) {
+  const statusEl = document.getElementById('voteStatus');
+  const tdhInput = document.getElementById('tdhInput');
+  const allocatedTDH = tdhInput ? parseInt(tdhInput.value) : userIdentity.tdh;
+  const btnChangeYes = document.getElementById('btnChangeYes');
+  const btnChangeNo = document.getElementById('btnChangeNo');
+  if (btnChangeYes) btnChangeYes.disabled = true;
+  if (btnChangeNo) btnChangeNo.disabled = true;
+
+  if (statusEl) statusEl.innerHTML = '<span class="status-pending">Withdrawing old vote...</span>';
+
+  try {
+    // 1. Withdraw old vote
+    const primaryAddr = userIdentity.primaryAddress.toLowerCase();
+    const myVote = tally.votes.find(v =>
+      (v.voter || '').toLowerCase() === primaryAddr ||
+      (v.submittedBy || '').toLowerCase() === primaryAddr
+    );
+    if (myVote && myVote.issueNumber) {
+      await deleteProposal(myVote.issueNumber, userIdentity.primaryAddress);
+    }
+    invalidateCache();
+
+    // 2. Submit new vote
+    if (statusEl) statusEl.innerHTML = '<span class="status-pending">Signing new vote...</span>';
+    const result = await submitVote(proposalId, newVote, allocatedTDH);
+
+    showToast(`Vote changed to ${newVote.toUpperCase()} with ${formatTDH(allocatedTDH)} TDH!`, 'success');
+    invalidateCache();
+    setTimeout(() => renderProposalDetail(proposalId), 2000);
+  } catch (err) {
+    if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
+    if (btnChangeYes) btnChangeYes.disabled = false;
+    if (btnChangeNo) btnChangeNo.disabled = false;
     showToast(err.message, 'error');
   }
 }
