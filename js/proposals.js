@@ -120,8 +120,11 @@ export async function tallyVotes(votes, proposal = null) {
   const detailed = await Promise.all(
     votes.map(async (v) => {
       const currentTDH = await getTDH(v.voter);
-      const effectiveTDH = v.allocatedTDH ? Math.min(v.allocatedTDH, currentTDH) : currentTDH;
-      return { ...v, currentTDH, effectiveTDH, issueNumber: v.issueNumber };
+      // If API fails (returns 0), trust the allocated TDH from the vote
+      const effectiveTDH = currentTDH > 0
+        ? (v.allocatedTDH ? Math.min(v.allocatedTDH, currentTDH) : currentTDH)
+        : (v.allocatedTDH || 0);
+      return { ...v, currentTDH: currentTDH || v.voterTDH || 0, effectiveTDH, issueNumber: v.issueNumber };
     })
   );
 
