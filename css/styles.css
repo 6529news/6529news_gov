@@ -248,6 +248,15 @@ a:hover { color: var(--c-gold-br); text-decoration: underline; }
 .tdh-current-label.tdh-negative { color: var(--err, #f44); }
 .tdh-range-label { font-family: var(--f-display); font-size: 11px; color: var(--c-text-35); flex-shrink: 0; min-width: 50px; text-align: center; }
 .tdh-slider-bipolar { flex: 1; }
+.tdh-manual-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.tdh-manual-input {
+  font-family: var(--f-display); font-size: 16px; font-weight: 700;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--c-text); padding: 6px 12px; border-radius: 4px;
+  width: 140px; text-align: center;
+}
+.tdh-manual-input:focus { outline: none; border-color: var(--c-gold-60); }
+.tdh-manual-hint { font-family: var(--f-display); font-size: 10px; color: var(--c-text-35); letter-spacing: 1px; }
 
 /* Voted badge on proposal cards */
 .proposal-voted { border-color: rgba(0,204,102,0.2); }

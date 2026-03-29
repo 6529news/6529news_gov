@@ -288,8 +288,12 @@ async function renderProposalDetail(id) {
           </div>
           <div class="tdh-slider-row">
             <span class="tdh-range-label">-${formatTDH(availableTDH)}</span>
-            <input type="range" id="tdhSlider" min="${-availableTDH}" max="${availableTDH}" value="0" class="tdh-slider tdh-slider-bipolar">
+            <input type="range" id="tdhSlider" min="${-availableTDH}" max="${availableTDH}" value="0" class="tdh-slider tdh-slider-bipolar" data-max="${availableTDH}">
             <span class="tdh-range-label">+${formatTDH(availableTDH)}</span>
+          </div>
+          <div class="tdh-manual-row">
+            <input type="number" id="tdhManual" value="0" class="tdh-manual-input" placeholder="Enter TDH">
+            <span class="tdh-manual-hint">Negative = against</span>
           </div>
         </div>
         <div class="vote-actions">
@@ -321,8 +325,12 @@ async function renderProposalDetail(id) {
           </div>
           <div class="tdh-slider-row">
             <span class="tdh-range-label">-${formatTDH(maxTDH)}</span>
-            <input type="range" id="tdhSlider" min="${-maxTDH}" max="${maxTDH}" value="${signedTDH}" class="tdh-slider tdh-slider-bipolar">
+            <input type="range" id="tdhSlider" min="${-maxTDH}" max="${maxTDH}" value="${signedTDH}" class="tdh-slider tdh-slider-bipolar" data-max="${maxTDH}">
             <span class="tdh-range-label">+${formatTDH(maxTDH)}</span>
+          </div>
+          <div class="tdh-manual-row">
+            <input type="number" id="tdhManual" value="${signedTDH}" class="tdh-manual-input" placeholder="Enter TDH">
+            <span class="tdh-manual-hint">Negative = against</span>
           </div>
         </div>
         <div class="vote-actions">
@@ -411,19 +419,41 @@ async function renderProposalDetail(id) {
     </div>
   `;
 
-  // Bipolar slider logic
+  // Bipolar slider logic with magnetic zero + manual input
   const slider = document.getElementById('tdhSlider');
   const label = document.getElementById('tdhLabel');
+  const manual = document.getElementById('tdhManual');
   const btnConfirm = document.getElementById('btnConfirm');
+
   if (slider && label) {
     const initialVal = parseInt(slider.value);
-    slider.addEventListener('input', () => {
-      const val = parseInt(slider.value);
+    const maxVal = parseInt(slider.dataset.max) || 1;
+    const snapZone = maxVal * 0.05; // 5% snap zone around zero
+
+    function updateDisplay(val) {
       const sign = val > 0 ? '+' : '';
       label.textContent = `${sign}${formatTDH(val)} TDH`;
       label.className = `tdh-current-label ${val > 0 ? 'tdh-positive' : val < 0 ? 'tdh-negative' : ''}`;
       if (btnConfirm) btnConfirm.disabled = (val === 0 || val === initialVal);
+    }
+
+    // Slider → snap to zero + sync manual input
+    slider.addEventListener('input', () => {
+      let val = parseInt(slider.value);
+      if (Math.abs(val) < snapZone) { val = 0; slider.value = 0; }
+      if (manual) manual.value = val;
+      updateDisplay(val);
     });
+
+    // Manual input → sync slider
+    if (manual) {
+      manual.addEventListener('input', () => {
+        let val = parseInt(manual.value) || 0;
+        val = Math.max(-maxVal, Math.min(maxVal, val));
+        slider.value = val;
+        updateDisplay(val);
+      });
+    }
   }
 
   // Confirm button: handles both new vote and change vote
