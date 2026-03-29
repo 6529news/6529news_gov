@@ -84,8 +84,8 @@ async function renderUserArea() {
   const pfpHtml = pfpSrc ? `<img src="${pfpSrc}" class="user-pfp" alt="">` : '<div class="user-pfp-placeholder"></div>';
 
   const budgetHtml = allocatedTDH > 0
-    ? `${formatTDH(availableTDH)} free &middot; ${formatTDH(allocatedTDH)} used`
-    : `${formatTDH(userIdentity.tdh)} TDH`;
+    ? `<span class="tdh-free">${formatTDH(availableTDH)} free</span> &middot; <span class="tdh-used">${formatTDH(allocatedTDH)} allocated</span>`
+    : `<span class="tdh-free">${formatTDH(userIdentity.tdh)} TDH</span>`;
 
   userArea.innerHTML = `
     <div class="user-info">
@@ -504,6 +504,7 @@ async function renderProposalDetail(id) {
       await deleteProposal(myVote.issueNumber, userIdentity.primaryAddress);
       showToast('Vote withdrawn', 'success');
       invalidateCache();
+      renderUserArea();
       renderProposalDetail(id);
     } catch (err) {
       showToast(err.message, 'error');
@@ -544,9 +545,9 @@ async function handleVote(proposalId, vote, allocatedTDHOverride) {
     const voteTypeLabel = vote === 'yes' ? 'Positive' : 'Negative';
     showToast(`${voteTypeLabel} ${formatTDH(allocatedTDH)} TDH allocated!`, 'success');
 
-    // Refresh the proposal view after a short delay to show updated tally
+    // Refresh the proposal view + user area after a short delay
     invalidateCache();
-    setTimeout(() => renderProposalDetail(proposalId), 2000);
+    setTimeout(() => { renderUserArea(); renderProposalDetail(proposalId); }, 2000);
   } catch (err) {
     if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
     if (btnYes) btnYes.disabled = false;
@@ -582,7 +583,7 @@ async function handleChangeVote(proposalId, newVote, tally, allocatedTDHOverride
     const changeLabel = newVote === 'yes' ? 'Positive' : 'Negative';
     showToast(`Allocation changed to ${changeLabel} ${formatTDH(allocatedTDH)} TDH!`, 'success');
     invalidateCache();
-    setTimeout(() => renderProposalDetail(proposalId), 2000);
+    setTimeout(() => { renderUserArea(); renderProposalDetail(proposalId); }, 2000);
   } catch (err) {
     if (statusEl) statusEl.innerHTML = `<span class="status-error">${err.message}</span>`;
     if (btnChangeYes) btnChangeYes.disabled = false;

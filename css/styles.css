@@ -86,7 +86,9 @@ a:hover { color: var(--c-gold-br); text-decoration: underline; }
 
 .user-details { display: flex; flex-direction: column; }
 .user-handle { font-family: var(--f-display); font-weight: 700; font-size: 14px; color: var(--c-text); }
-.user-tdh { font-family: var(--f-display); font-size: 11px; color: var(--c-text-35); }
+.user-tdh { font-family: var(--f-display); font-size: 13px; color: var(--c-text-55); letter-spacing: 0.5px; }
+.user-tdh .tdh-free { color: var(--green, #0c6); font-weight: 700; }
+.user-tdh .tdh-used { color: var(--c-gold); font-weight: 600; }
 .user-link { display: flex; align-items: center; gap: 10px; text-decoration: none; transition: opacity 0.2s; }
 .user-link:hover { opacity: 0.8; text-decoration: none; }
 
